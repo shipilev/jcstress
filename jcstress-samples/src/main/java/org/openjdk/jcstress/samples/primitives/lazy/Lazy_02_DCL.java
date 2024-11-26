@@ -70,8 +70,8 @@ public class Lazy_02_DCL {
     @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Seeing a proper value.")
     public static class Basic {
         Lazy<Holder> lazy = new DCLLazy<>(() -> new Holder());
-        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.poll(lazy); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.poll(lazy); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
     @JCStressTest
@@ -79,8 +79,8 @@ public class Lazy_02_DCL {
     @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
     public static class NullHolder {
         Lazy<Holder> lazy = new DCLLazy<>(() -> null);
-        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.poll(lazy); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.poll(lazy); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
     @JCStressTest
@@ -90,7 +90,7 @@ public class Lazy_02_DCL {
     public static class RacyPublication {
         Lazy<Holder> lazy;
         @Actor public void actor1() { lazy = new DCLLazy<>(() -> new Holder()); }
-        @Actor public void actor2(L_Result r) { r.r1 = Lazy.poll(lazy); }
+        @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
     }
 
 }

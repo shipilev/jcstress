@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2014, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2014, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,15 +22,18 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package org.openjdk.jcstress.tests.singletons;
+package org.openjdk.jcstress.samples.primitives.singletons.shared;
 
-public class SingletonSafe implements Singleton {
-    final Byte x;
-
-    public SingletonSafe() { x = 42; }
-
-    @Override
-    public Byte x() {
-        return x;
+public interface Holder {
+    String data();
+    static String map(Holder s) {
+        if (s == null) {
+            return "null-holder";
+        }
+        String data = s.data();
+        if (data == null) {
+            return "null-data";
+        }
+        return data;
     }
 }

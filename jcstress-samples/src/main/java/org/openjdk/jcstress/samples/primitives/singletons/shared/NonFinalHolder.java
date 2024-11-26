@@ -22,19 +22,13 @@
  * or visit www.oracle.com if you need additional information or have any
  * questions.
  */
-package org.openjdk.jcstress.tests.singletons;
+package org.openjdk.jcstress.samples.primitives.singletons.shared;
 
-public interface Singleton {
+public class NonFinalHolder implements Holder {
+    String data = "data";
 
-    Byte x();
-
-    public static int map(Singleton singleton) {
-        if (singleton == null) {
-            return 0;
-        }
-        if (singleton.x() == null) {
-            return 1;
-        }
-        return singleton.x();
+    @Override
+    public String data() {
+        return data;
     }
 }

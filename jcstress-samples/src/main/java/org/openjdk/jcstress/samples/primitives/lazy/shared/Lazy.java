@@ -27,8 +27,7 @@ package org.openjdk.jcstress.samples.primitives.lazy.shared;
 public interface Lazy<T> {
     T get();
 
-
-    static String poll(Lazy<Holder> lazy) {
+    static String map(Lazy<Holder> lazy) {
         if (lazy == null) {
             return "null-lazy";
         }

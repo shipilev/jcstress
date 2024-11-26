@@ -73,8 +73,8 @@ public class Lazy_04_AtomicRefOneShot {
     @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Seeing a proper value.")
     public static class Basic {
         Lazy<Holder> lazy = new AtomicRefFactoryLazy<>(() -> new Holder());
-        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.poll(lazy); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.poll(lazy); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
     @JCStressTest
@@ -82,8 +82,8 @@ public class Lazy_04_AtomicRefOneShot {
     @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
     public static class NullHolder {
         Lazy<Holder> lazy = new AtomicRefFactoryLazy<>(() -> null);
-        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.poll(lazy); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.poll(lazy); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
     @JCStressTest
@@ -93,7 +93,7 @@ public class Lazy_04_AtomicRefOneShot {
     public static class RacyPublication {
         Lazy<Holder> lazy;
         @Actor public void actor1() { lazy = new AtomicRefFactoryLazy<>(() -> new Holder()); }
-        @Actor public void actor2(L_Result r) { r.r1 = Lazy.poll(lazy); }
+        @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
     }
 
 }
