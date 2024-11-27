@@ -31,6 +31,7 @@ import org.openjdk.jcstress.annotations.State;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.infra.results.L_Result;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Holder;
+import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderSupplier;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
 
 import java.util.function.Supplier;
@@ -69,9 +70,9 @@ public class Lazy_02_BrokenOneShot {
 
     @JCStressTest
     @State
-    @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Seeing a proper value.")
+    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Seeing the proper data.")
     public static class Basic {
-        Lazy<Holder> lazy = new BrokenOneShotFactoryLazy<>(() -> new Holder());
+        Lazy<Holder> lazy = new BrokenOneShotFactoryLazy<>(new HolderSupplier());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
@@ -87,13 +88,14 @@ public class Lazy_02_BrokenOneShot {
 
     @JCStressTest
     @State
-    @Outcome(id = "null-lazy",   expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
-    @Outcome(id = "null-holder", expect = ACCEPTABLE_INTERESTING, desc = "Holder instance not seen yet.")
-    @Outcome(id = "data",        expect = ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = {"null-lazy, data.", "data., null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    @Outcome(id = {"null-holder, .*", ".*, null-holder"}, expect = ACCEPTABLE_INTERESTING, desc = "Seeing uninitialized holder!")
     public static class RacyPublication {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new BrokenOneShotFactoryLazy<>(() -> new Holder()); }
-        @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor1() { lazy = new BrokenOneShotFactoryLazy<>(new HolderSupplier()); }
+        @Actor public void actor2(LL_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor3(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
 }

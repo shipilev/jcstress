@@ -31,6 +31,7 @@ import org.openjdk.jcstress.annotations.State;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.infra.results.L_Result;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Holder;
+import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderSupplier;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -72,7 +73,7 @@ public class Lazy_03_AtomicRefOneShot {
     @State
     @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Seeing a proper value.")
     public static class Basic {
-        Lazy<Holder> lazy = new AtomicRefFactoryLazy<>(() -> new Holder());
+        Lazy<Holder> lazy = new AtomicRefFactoryLazy<>(new HolderSupplier());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
@@ -92,7 +93,7 @@ public class Lazy_03_AtomicRefOneShot {
     @Outcome(id = "data",      expect = ACCEPTABLE, desc = "Seeing the proper data.")
     public static class RacyPublication {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new AtomicRefFactoryLazy<>(() -> new Holder()); }
+        @Actor public void actor1() { lazy = new AtomicRefFactoryLazy<>(new HolderSupplier()); }
         @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
     }
 

@@ -1,5 +1,5 @@
 /*
- * Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2014, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,10 +24,12 @@
  */
 package org.openjdk.jcstress.samples.primitives.lazy.shared;
 
-public class Holder {
-    String data;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
-    public Holder(String data) {
-        this.data = data;
+public class HolderSupplier implements Supplier<Holder> {
+    @Override
+    public Holder get() {
+        return ThreadLocalRandom.current().nextInt(2) == 0 ? new Holder("data1") : new Holder("data2");
     }
 }

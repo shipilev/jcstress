@@ -24,15 +24,14 @@
  */
 package org.openjdk.jcstress.samples.primitives.lazy;
 
-import org.openjdk.jcstress.annotations.Actor;
-import org.openjdk.jcstress.annotations.JCStressTest;
-import org.openjdk.jcstress.annotations.Outcome;
-import org.openjdk.jcstress.annotations.State;
+import org.openjdk.jcstress.annotations.*;
+import org.openjdk.jcstress.infra.results.LLZ_Result;
 import org.openjdk.jcstress.infra.results.LL_Result;
-import org.openjdk.jcstress.infra.results.L_Result;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Holder;
+import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderSupplier;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
@@ -69,30 +68,34 @@ public class Lazy_01_Basic {
 
     @JCStressTest
     @State
-    @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Seeing a proper value.")
+    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Seeing the proper data.")
     public static class Basic {
-        Lazy<Holder> lazy = new BasicLazy<>(() -> new Holder());
+        Lazy<Holder> lazy = new BasicLazy<>(new HolderSupplier());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
+    @Outcome(id = "null-holder, null-holder, true", expect = ACCEPTABLE, desc = "Seeing a null holder, called factory exactly once.")
     public static class NullHolder {
-        Lazy<Holder> lazy = new BasicLazy<>(() -> null);
-        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
+        AtomicInteger counter = new AtomicInteger();
+        Lazy<Holder> lazy = new BasicLazy<>(() -> { counter.incrementAndGet(); return null; });
+
+        @Actor public void actor1(LLZ_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor2(LLZ_Result r) { r.r2 = Lazy.map(lazy); }
+        @Arbiter public void arbiter(LLZ_Result r) { r.r3 = (counter.get() == 1); }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = "null-lazy", expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
-    @Outcome(id = "data",      expect = ACCEPTABLE, desc = "Seeing a proper value.")
+    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Seeing a proper value.")
+    @Outcome(id = {"null-lazy, data.", "data., null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     public static class RacyPublication {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new BasicLazy<>(() -> new Holder()); }
-        @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor1() { lazy = new BasicLazy<>(new HolderSupplier()); }
+        @Actor public void actor2(LL_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor3(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
 }
