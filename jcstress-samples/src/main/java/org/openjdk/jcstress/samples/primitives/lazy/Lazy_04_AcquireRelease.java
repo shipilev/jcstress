@@ -44,7 +44,7 @@ import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
     $ java -jar jcstress-samples/target/jcstress.jar -t LazyTest
 */
 
-public class Lazy_05_AcquireRelease {
+public class Lazy_04_AcquireRelease {
 
     static class AcquireReleaseLazy<T> implements Lazy<T> {
         static final VarHandle VH;

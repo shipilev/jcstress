@@ -43,7 +43,7 @@ import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
     $ java -jar jcstress-samples/target/jcstress.jar -t LazyTest
 */
 
-public class Lazy_04_AtomicRefOneShot {
+public class Lazy_03_AtomicRefOneShot {
 
     static class AtomicRefFactoryLazy<T> implements Lazy<T> {
         private final AtomicReference<Supplier<T>> factoryRef;

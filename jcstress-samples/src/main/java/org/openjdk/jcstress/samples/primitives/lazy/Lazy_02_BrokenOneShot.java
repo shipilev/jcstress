@@ -36,28 +36,30 @@ import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
 import java.util.function.Supplier;
 
 import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
+import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE_INTERESTING;
 
 /*
     How to run this test:
     $ java -jar jcstress-samples/target/jcstress.jar -t LazyTest
 */
 
-public class Lazy_02_DCL {
+public class Lazy_02_BrokenOneShot {
 
-    static class DCLLazy<T> implements Lazy<T> {
-        private final Supplier<T> factory;
-        private volatile T value;
+    static class BrokenOneShotFactoryLazy<T> implements Lazy<T> {
+        private volatile Supplier<T> factory;
+        private T value;
 
-        public DCLLazy(Supplier<T> factory) {
+        public BrokenOneShotFactoryLazy(Supplier<T> factory) {
             this.factory = factory;
         }
 
         @Override
         public T get() {
-            if (value == null) {
+            if (factory != null) {
                 synchronized (this) {
-                    if (value == null) {
+                    if (factory != null) {
                         value = factory.get();
+                        factory = null;
                     }
                 }
             }
@@ -69,7 +71,7 @@ public class Lazy_02_DCL {
     @State
     @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Seeing a proper value.")
     public static class Basic {
-        Lazy<Holder> lazy = new DCLLazy<>(() -> new Holder());
+        Lazy<Holder> lazy = new BrokenOneShotFactoryLazy<>(() -> new Holder());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
@@ -78,18 +80,19 @@ public class Lazy_02_DCL {
     @State
     @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
     public static class NullHolder {
-        Lazy<Holder> lazy = new DCLLazy<>(() -> null);
+        Lazy<Holder> lazy = new BrokenOneShotFactoryLazy<>(() -> null);
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = "null-lazy", expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
-    @Outcome(id = "data",      expect = ACCEPTABLE, desc = "Seeing a proper value.")
+    @Outcome(id = "null-lazy",   expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    @Outcome(id = "null-holder", expect = ACCEPTABLE_INTERESTING, desc = "Holder instance not seen yet.")
+    @Outcome(id = "data",        expect = ACCEPTABLE, desc = "Seeing the proper data.")
     public static class RacyPublication {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new DCLLazy<>(() -> new Holder()); }
+        @Actor public void actor1() { lazy = new BrokenOneShotFactoryLazy<>(() -> new Holder()); }
         @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
     }
 

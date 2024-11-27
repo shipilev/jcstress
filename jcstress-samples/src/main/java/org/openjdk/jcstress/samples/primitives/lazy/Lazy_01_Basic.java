@@ -37,32 +37,31 @@ import java.util.function.Supplier;
 
 import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
 
+/*
+    How to run this test:
+    $ java -jar jcstress-samples/target/jcstress.jar -t LazyTest
+*/
+
 public class Lazy_01_Basic {
 
-     /*
-        How to run this test:
-            $ java -jar jcstress-samples/target/jcstress.jar -t Lazy_01_Basic[.SubTestName]
-     */
-
-    /*
-      ----------------------------------------------------------------------------------------------------------
-
-        This example builds out the implementation of interface Lazy<T> -- a lazy supplier that
-
-    */
+    // This builds on Singleton examples, read those first.
 
     static class BasicLazy<T> implements Lazy<T> {
         private final Supplier<T> factory;
-        private T value;
+        private volatile T value;
 
         public BasicLazy(Supplier<T> factory) {
             this.factory = factory;
         }
 
         @Override
-        public synchronized T get() {
+        public T get() {
             if (value == null) {
-                value = factory.get();
+                synchronized (this) {
+                    if (value == null) {
+                        value = factory.get();
+                    }
+                }
             }
             return value;
         }
@@ -70,7 +69,7 @@ public class Lazy_01_Basic {
 
     @JCStressTest
     @State
-    @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Seeing a proper value.")
     public static class Basic {
         Lazy<Holder> lazy = new BasicLazy<>(() -> new Holder());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
@@ -89,7 +88,7 @@ public class Lazy_01_Basic {
     @JCStressTest
     @State
     @Outcome(id = "null-lazy", expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
-    @Outcome(id = "data",      expect = ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = "data",      expect = ACCEPTABLE, desc = "Seeing a proper value.")
     public static class RacyPublication {
         Lazy<Holder> lazy;
         @Actor public void actor1() { lazy = new BasicLazy<>(() -> new Holder()); }
