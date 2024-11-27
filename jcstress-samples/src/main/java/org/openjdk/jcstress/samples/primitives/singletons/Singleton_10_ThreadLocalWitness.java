@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,26 +30,46 @@ import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
 import java.util.function.Supplier;
 
-public class Singleton_01_Unsynchronized {
+/*
+    How to run this test:
+    $ java -jar jcstress-samples/target/jcstress.jar -t LazyTest
+*/
 
-    public static class Unsynchronized<T> implements Factory<T> {
-        private T instance;
+public class Singleton_10_ThreadLocalWitness {
+
+    // https://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html#ThreadLocal
+
+    static class ThreadLocalWitness<T> implements Factory<T> {
+        private final ThreadLocal<String> witness;
+        private T value;
+
+        public ThreadLocalWitness() {
+            this.witness = new ThreadLocal<>();
+        }
 
         @Override
         public T get(Supplier<T> supplier) {
-            if (instance == null) {
-                instance = supplier.get();
+            if (witness.get() == null) {
+                synchronized(this) {
+                    if (value == null) {
+                        value = supplier.get();
+                    }
+                }
+                // NOTE: Original example sets witness.set(witness), but that constructs a memory leak.
+                // As the comments in the example correctly note, any non-null value would do as the argument here,
+                // so we just put a String constant into it. This insulates us from putting anything that references
+                // a thread local into back into thread local itself.
+                witness.set("seen");
             }
-            return instance;
+            return value;
         }
     }
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class Final {
-        Unsynchronized<Singleton> factory = new Unsynchronized<>();
+        ThreadLocalWitness<Singleton> factory = new ThreadLocalWitness<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
@@ -57,25 +77,10 @@ public class Singleton_01_Unsynchronized {
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class NonFinal {
-        Unsynchronized<Singleton> factory = new Unsynchronized<>();
+        ThreadLocalWitness<Singleton> factory = new ThreadLocalWitness<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new NonFinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new NonFinalSingleton("data2")); }
-    }
-
-    @JCStressTest
-    @State
-    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"data1, null-factory",
-            "null-factory, data2",
-            "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
-    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
-    public static class RacyFactory {
-        Unsynchronized<Singleton> factory;
-        @Actor public void construct() { factory = new Unsynchronized<>(); }
-        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
 
 }

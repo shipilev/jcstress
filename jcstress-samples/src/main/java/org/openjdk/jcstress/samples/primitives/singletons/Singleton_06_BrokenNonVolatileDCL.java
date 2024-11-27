@@ -30,7 +30,7 @@ import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
 import java.util.function.Supplier;
 
-public class Singleton_03_NonVolatileDCL {
+public class Singleton_06_BrokenNonVolatileDCL {
 
     public static class NonVolatileDCL<T> implements Factory<T> {
         private T instance; // specifically non-volatile
@@ -48,6 +48,15 @@ public class Singleton_03_NonVolatileDCL {
         }
     }
 
+    /*
+
+        x86_64, AArch64:
+        RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+  data1, data1  1,251,305,922   64.43%  Acceptable  Trivial.
+  data2, data2    690,896,902   35.57%  Acceptable  Trivial.
+
+     */
+
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
@@ -56,6 +65,16 @@ public class Singleton_03_NonVolatileDCL {
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
+
+    /*
+
+        AArch64:
+            RESULT        SAMPLES     FREQ       EXPECT  DESCRIPTION
+      data1, data1  1,470,891,960   63.17%   Acceptable  Trivial.
+  data1, null-data      1,124,329    0.05%  Interesting  Data races.
+      data2, data2    855,805,003   36.75%   Acceptable  Trivial.
+  null-data, data2        665,052    0.03%  Interesting  Data races.
+     */
 
     @JCStressTest
     @State
@@ -67,17 +86,4 @@ public class Singleton_03_NonVolatileDCL {
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new NonFinalSingleton("data2")); }
     }
 
-    @JCStressTest
-    @State
-    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"data1, null-data", "null-data, data2"}, expect = Expect.ACCEPTABLE_INTERESTING, desc = "Data races.")
-    @Outcome(id = {"data1, null-factory",
-            "null-factory, data2",
-            "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
-    public static class RacyFactory {
-        NonVolatileDCL<Singleton> singleton;
-        @Actor public void construct() { singleton = new NonVolatileDCL<>(); }
-        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(singleton, () -> new FinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(singleton, () -> new FinalSingleton("data2")); }
-    }
 }

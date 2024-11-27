@@ -28,59 +28,78 @@ import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
-import java.lang.invoke.VarHandle;
 import java.util.function.Supplier;
 
-public class Singleton_09_FencedDCL {
+public class Singleton_04_InefficientSynchronized {
 
-    public static class FencedDCL<T> implements Factory<T> {
+    /*
+        How to run this test:
+            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_04
+    */
+
+    /*
+        ----------------------------------------------------------------------------------------------------------
+
+        CAS test fixes the versioning problem for us, but it still left us with a problem when calling to supplier
+        multiple times is expensive.
+
+        The common answer to these kinds of troubles is _mutual exclusion_ primitives, that only allow one thread
+        to enter the mutual exclusion area. A common primitives for this are locks, for example intrinsic
+         "synchronized" in Java.
+     */
+
+    public static class Synchronized<T> implements Factory<T> {
         private T instance;
 
         @Override
         public T get(Supplier<T> supplier) {
-            if (instance == null) {
-                synchronized (this) {
-                    if (instance == null) {
-                        T t = supplier.get();
-                        VarHandle.releaseFence();
-                        instance = t;
-                    }
+            synchronized (this) {
+                if (instance == null) {
+                    instance = supplier.get();
                 }
+                return instance;
             }
-            VarHandle.acquireFence();
-            return instance;
         }
     }
+
+    /*
+        As expected, this solves the versioning problem.
+
+        x86_64, AArch64:
+                RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data1, data1  1,267,833,868   59.29%  Acceptable  Trivial.
+          data2, data2    870,567,356   40.71%  Acceptable  Trivial.
+     */
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    public static class Safe {
-        FencedDCL<Singleton> factory = new FencedDCL<>();
+    public static class Final {
+        Synchronized<Singleton> factory = new Synchronized<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
 
+    /*
+        And, of course, it also solves the visibility problem: all threads agree on the contents of singletons.
+
+        x86_64, AArch64:
+                RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data1, data1  1,537,912,621   71.20%  Acceptable  Trivial.
+          data2, data2    622,064,283   28.80%  Acceptable  Trivial.
+     */
+
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    public static class Unsafe {
-        FencedDCL<Singleton> factory = new FencedDCL<>();
+    public static class NonFinal {
+        Synchronized<Singleton> factory = new Synchronized<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new NonFinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new NonFinalSingleton("data2")); }
     }
 
-    @JCStressTest
-    @State
-    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"data1, null-factory",
-            "null-factory, data2",
-            "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
-    public static class RacyFactory {
-        FencedDCL<Singleton> factory;
-        @Actor public void construct() { factory = new FencedDCL<>(); }
-        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
-    }
+    /*
+        There is still a major performance problem: taking a lock every time we reach for singleton is expensive.
+     */
 
 }

@@ -28,65 +28,78 @@ import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.util.function.Supplier;
 
-public class Singleton_05_AcquireReleaseDCL {
+public class Singleton_02_BrokenVolatile {
 
-    public static class AcquireReleaseDCL<T> implements Factory<T> {
-        static final VarHandle VH;
-        static {
-            try {
-                VH = MethodHandles.lookup().findVarHandle(AcquireReleaseDCL.class, "instance", Object.class);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        }
+    /*
+        How to run this test:
+            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_02
+    */
 
-        private T instance;
+    /*
+        ----------------------------------------------------------------------------------------------------------
+
+        The "obvious" solution for synchronization is to add volatile to instance field.
+     */
+
+    public static class VolatileS<T> implements Factory<T> {
+        private volatile T instance;
 
         @Override
         public T get(Supplier<T> supplier) {
-            if (VH.getOpaque(this) == null) {
-                synchronized (this) {
-                    if (VH.getOpaque(this) == null) {
-                        VH.setRelease(this, supplier.get());
-                    }
-                }
+            if (instance == null) {
+                instance = supplier.get();
             }
-            return (T) VH.getAcquire(this);
+            return instance;
         }
     }
+
+    /*
+        Sadly, volatile still does not solve the interleaving problem: the separate reads and writes of
+        volatile variables are not atomic in combination.
+
+        AArch64, x86_64:
+                    RESULT        SAMPLES     FREQ       EXPECT  DESCRIPTION
+              data1, data1  1,513,077,834   53.05%   Acceptable  Trivial.
+              data1, data2    305,328,400   10.71%  Interesting  Race condition.
+              data2, data2  1,033,548,910   36.24%   Acceptable  Trivial.
+     */
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
+    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class Final {
-        AcquireReleaseDCL<Singleton> factory = new AcquireReleaseDCL<>();
+        VolatileS<Singleton> factory = new VolatileS<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
 
+    /*
+        What *does* volatile solve, however, is the safe publication of the singleton instance.
+        Even though there is a race condition that can install different versions of singletons,
+        every thread is guaranteed to see the singleton contents, even if its contents are not final.
+        This is going to be a building block for so called double-checked locking implementation later.
+
+        This is similar to BasicJMM_06_Causality example.
+
+        AArch64:
+                   RESULT        SAMPLES     FREQ       EXPECT  DESCRIPTION
+             data1, data1  1,240,790,356   54.77%   Acceptable  Trivial.
+             data1, data2    234,875,383   10.37%  Interesting  Race condition.
+             data2, data2    789,721,725   34.86%   Acceptable  Trivial.
+     */
+
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
+    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class NonFinal {
-        AcquireReleaseDCL<Singleton> factory = new AcquireReleaseDCL<>();
+        VolatileS<Singleton> factory = new VolatileS<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new NonFinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new NonFinalSingleton("data2")); }
     }
 
-    @JCStressTest
-    @State
-    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"data1, null-factory",
-                   "null-factory, data2",
-                   "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
-    public static class RacyFactory {
-        AcquireReleaseDCL<Singleton> factory;
-        @Actor public void construct() { factory = new AcquireReleaseDCL<>(); }
-        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
-    }
+
 }

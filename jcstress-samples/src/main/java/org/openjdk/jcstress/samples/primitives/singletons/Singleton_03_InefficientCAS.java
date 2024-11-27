@@ -28,53 +28,80 @@ import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
-public class Singleton_02_Synchronized {
+public class Singleton_03_InefficientCAS {
 
-    public static class Synchronized<T> implements Factory<T> {
-        private T instance;
+    /*
+        How to run this test:
+            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_03
+    */
+
+    /*
+        ----------------------------------------------------------------------------------------------------------
+
+        Volatile solves the publication problem for us, but it does not solve the multiple
+        versions of a singleton installed. What if we used Compare-And-Set like this?
+     */
+
+    public static class CAS<T> implements Factory<T> {
+        private final AtomicReference<T> ref = new AtomicReference<T>();
 
         @Override
         public T get(Supplier<T> supplier) {
-            synchronized (this) {
-                if (instance == null) {
-                    instance = supplier.get();
-                }
-                return instance;
+            if (ref.get() == null) {
+                ref.compareAndSet(null, supplier.get());
             }
+            return ref.get();
         }
     }
+
+    /*
+        As expected, there are no problems with versioning anymore on any architecture.
+
+        AArch64, x86_64:
+                    RESULT        SAMPLES     FREQ       EXPECT  DESCRIPTION
+              data1, data1  2,078,570,754   52.66%   Acceptable  Trivial.
+              data2, data2  1,868,941,510   47.34%   Acceptable  Trivial.
+     */
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
+    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class Final {
-        Synchronized<Singleton> factory = new Synchronized<>();
+        CAS<Singleton> factory = new CAS<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
 
+    /*
+        There are no problems with singleton publication either: CAS "releases" the singleton object,
+        and get()-s acquire it.
+
+        AArch64, x86_64:
+                    RESULT        SAMPLES     FREQ       EXPECT  DESCRIPTION
+              data1, data1  2,480,166,763   45.74%   Acceptable  Trivial.
+              data2, data2  2,942,540,381   54.26%   Acceptable  Trivial.
+     */
+
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
+    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class NonFinal {
-        Synchronized<Singleton> factory = new Synchronized<>();
+        CAS<Singleton> factory = new CAS<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new NonFinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new NonFinalSingleton("data2")); }
     }
 
-    @JCStressTest
-    @State
-    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"data1, null-factory",
-            "null-factory, data2",
-            "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
-    public static class RacyFactory {
-        Synchronized<Singleton> factory;
-        @Actor public void construct() { factory = new Synchronized<>(); }
-        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
-    }
+    /*
+        There is still a major performance problem here:
+
+        Without better coordination, we can call to supplier multiple times, and depending on what happens there,
+        we may incur a lot of overheads. In worst case, if supplier takes *seconds* to complete, *all* threads
+        could ask for their instance, and all but one thread would be able to install that version!
+     */
 
 }

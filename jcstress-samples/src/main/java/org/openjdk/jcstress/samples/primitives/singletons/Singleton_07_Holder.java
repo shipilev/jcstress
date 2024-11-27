@@ -30,7 +30,7 @@ import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
 import java.util.function.Supplier;
 
-public class Singleton_06_Holder {
+public class Singleton_07_Holder {
 
     public static class FinalHolderHolder implements Factory<Singleton> {
         @Override

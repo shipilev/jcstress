@@ -30,62 +30,75 @@ import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
 import java.util.function.Supplier;
 
-public class Singleton_07_FinalWrapper {
+public class Singleton_05_DCL {
 
-    public static class FinalWrapper<T> implements Factory<T> {
-        private Wrapper<T> wrapper;
+    /*
+        How to run this test:
+            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_05
+    */
+
+    /*
+        ----------------------------------------------------------------------------------------------------------
+
+        All the observations and samples so far provide us with the building blocks for so called
+        "Double-Checked Locking" pattern. See how two features work in tandem:
+           1. Volatile `instance` provides us with publication guarantees, while not solving interleaving
+              or single object creation problem. (See Singleton_02_BrokenVolatile)
+           2. Synchronized provides us with mutual exclusion for creating the object once.
+              (See Singleton_04_InefficientSynchronized)
+           3. The check before and after taking the lock solves the interleaving problem.
+     */
+
+    public static class DCL<T> implements Factory<T> {
+        private volatile T instance;
 
         @Override
-        public T get(Supplier<T> s) {
-            Wrapper<T> w = wrapper;
-            if (w == null) {
-                synchronized(this) {
-                    w = wrapper;
-                    if (w == null) {
-                        wrapper = w = new Wrapper<>(s.get());
+        public T get(Supplier<T> supplier) {
+            if (instance == null) {
+                synchronized (this) {
+                    if (instance == null) {
+                        instance = supplier.get();
                     }
                 }
             }
-            return w.t;
-        }
-
-        private static class Wrapper<T> {
-            public final T t;
-            public Wrapper(T t) {
-                this.t = t;
-            }
+            return instance;
         }
     }
+
+    /*
+        Indeed, this works well on all architectures.
+
+        x86_64, AArch64:
+                RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data1, data1  1,259,722,777   57.88%  Acceptable  Trivial.
+          data2, data2    916,873,647   42.12%  Acceptable  Trivial.
+     */
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
-        FinalWrapper<Singleton> factory = new FinalWrapper<>();
+        DCL<Singleton> factory = new DCL<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
+
+    /*
+        Since volatile provides us with publication guarantees, non-final singletons also work well.
+
+        x86_64, AArch64:
+                RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data1, data1  1,057,019,574   56.88%  Acceptable  Trivial.
+          data2, data2    801,420,050   43.12%  Acceptable  Trivial.
+     */
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
-        FinalWrapper<Singleton> factory = new FinalWrapper<>();
+        DCL<Singleton> factory = new DCL<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new NonFinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new NonFinalSingleton("data2")); }
-    }
-
-    @JCStressTest
-    @State
-    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"data1, null-factory",
-            "null-factory, data2",
-            "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
-    public static class RacyFactory {
-        FinalWrapper<Singleton> factory;
-        @Actor public void construct() { factory = new FinalWrapper<>(); }
-        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
 
 }
