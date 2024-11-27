@@ -27,32 +27,33 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalSingleton;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalSingleton;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.Singleton;
 
 import java.util.function.Supplier;
 
 public class Singleton_06_Holder {
 
-    public static class FinalHolderHolder implements Factory<FinalHolder> {
+    public static class FinalHolderHolder implements Factory<Singleton> {
         @Override
-        public FinalHolder get(Supplier<FinalHolder> supplier) {
+        public Singleton get(Supplier<Singleton> supplier) {
             return H.INSTANCE;
         }
 
         public static class H {
-            public static final FinalHolder INSTANCE = new FinalHolder("data");
+            public static final FinalSingleton INSTANCE = new FinalSingleton("data");
         }
     }
 
-    public static class NonFinalHolderHolder implements Factory<NonFinalHolder> {
+    public static class NonFinalHolderHolder implements Factory<Singleton> {
         @Override
-        public NonFinalHolder get(Supplier<NonFinalHolder> supplier) {
+        public Singleton get(Supplier<Singleton> supplier) {
             return H.INSTANCE;
         }
 
         public static class H {
-            public static final NonFinalHolder INSTANCE = new NonFinalHolder("data");
+            public static final NonFinalSingleton INSTANCE = new NonFinalSingleton("data");
         }
     }
 

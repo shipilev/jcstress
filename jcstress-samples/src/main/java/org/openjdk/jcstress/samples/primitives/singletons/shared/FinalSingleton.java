@@ -24,16 +24,15 @@
  */
 package org.openjdk.jcstress.samples.primitives.singletons.shared;
 
-public class FinalHolder {
+public class FinalSingleton implements Singleton {
     final String data;
 
-    public FinalHolder(String data) {
+    public FinalSingleton(String data) {
         this.data = data;
     }
 
     @Override
-    public String toString() {
-        String d = data;
-        return (d == null) ? "null-data" : d;
+    public String data() {
+        return data;
     }
 }

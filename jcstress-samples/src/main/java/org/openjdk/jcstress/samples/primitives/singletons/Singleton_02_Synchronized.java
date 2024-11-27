@@ -27,8 +27,9 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalSingleton;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalSingleton;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.Singleton;
 
 import java.util.function.Supplier;
 
@@ -52,18 +53,18 @@ public class Singleton_02_Synchronized {
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
-        Synchronized<Object> factory = new Synchronized<>();
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalHolder("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalHolder("data2")); }
+        Synchronized<Singleton> factory = new Synchronized<>();
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalSingleton("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalSingleton("data2")); }
     }
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
-        Synchronized<Object> factory = new Synchronized<>();
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
+        Synchronized<Singleton> factory = new Synchronized<>();
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalSingleton("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalSingleton("data2")); }
     }
 
     @JCStressTest
@@ -73,10 +74,10 @@ public class Singleton_02_Synchronized {
             "null-factory, data2",
             "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
     public static class RacyPublication {
-        Synchronized<Object> factory;
+        Synchronized<Singleton> factory;
         @Actor public void construct() { factory = new Synchronized<>(); }
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalSingleton("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalSingleton("data2")); }
     }
 
 }

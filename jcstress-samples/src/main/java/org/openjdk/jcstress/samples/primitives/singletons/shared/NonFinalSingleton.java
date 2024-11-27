@@ -24,16 +24,15 @@
  */
 package org.openjdk.jcstress.samples.primitives.singletons.shared;
 
-public class NonFinalHolder {
+public class NonFinalSingleton implements Singleton {
     String data;
 
-    public NonFinalHolder(String data) {
+    public NonFinalSingleton(String data) {
         this.data = data;
     }
 
     @Override
-    public String toString() {
-        String d = data;
-        return (d == null) ? "null-data" : d;
+    public String data() {
+        return data;
     }
 }
