@@ -27,7 +27,6 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
 
@@ -37,20 +36,20 @@ import java.util.function.Supplier;
 
 public class Singleton_05_AcquireReleaseDCL {
 
-    public static class AcquireReleaseDCL implements Factory {
+    public static class AcquireReleaseDCL<T> implements Factory<T> {
         static final VarHandle VH;
         static {
             try {
-                VH = MethodHandles.lookup().findVarHandle(AcquireReleaseDCL.class, "instance", Holder.class);
+                VH = MethodHandles.lookup().findVarHandle(AcquireReleaseDCL.class, "instance", Object.class);
             } catch (NoSuchFieldException | IllegalAccessException e) {
                 throw new RuntimeException(e);
             }
         }
 
-        private Holder instance;
+        private T instance;
 
         @Override
-        public Holder get(Supplier<Holder> supplier) {
+        public T get(Supplier<T> supplier) {
             if (VH.getOpaque(this) == null) {
                 synchronized (this) {
                     if (VH.getOpaque(this) == null) {
@@ -58,7 +57,7 @@ public class Singleton_05_AcquireReleaseDCL {
                     }
                 }
             }
-            return (Holder) VH.getAcquire(this);
+            return (T) VH.getAcquire(this);
         }
     }
 
@@ -66,7 +65,7 @@ public class Singleton_05_AcquireReleaseDCL {
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
-        AcquireReleaseDCL factory = new AcquireReleaseDCL();
+        AcquireReleaseDCL<Object> factory = new AcquireReleaseDCL<>();
         @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalHolder("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalHolder("data2")); }
     }
@@ -75,7 +74,7 @@ public class Singleton_05_AcquireReleaseDCL {
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
-        AcquireReleaseDCL factory = new AcquireReleaseDCL();
+        AcquireReleaseDCL<Object> factory = new AcquireReleaseDCL<>();
         @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
     }
@@ -87,8 +86,8 @@ public class Singleton_05_AcquireReleaseDCL {
                    "null-factory, data2",
                    "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
     public static class RacyPublication {
-        AcquireReleaseDCL factory;
-        @Actor public void construct() { factory = new AcquireReleaseDCL(); }
+        AcquireReleaseDCL<Object> factory;
+        @Actor public void construct() { factory = new AcquireReleaseDCL<>(); }
         @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
     }

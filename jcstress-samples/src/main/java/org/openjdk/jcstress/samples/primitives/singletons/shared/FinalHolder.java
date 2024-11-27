@@ -24,7 +24,7 @@
  */
 package org.openjdk.jcstress.samples.primitives.singletons.shared;
 
-public class FinalHolder implements Holder {
+public class FinalHolder {
     final String data;
 
     public FinalHolder(String data) {
@@ -32,7 +32,8 @@ public class FinalHolder implements Holder {
     }
 
     @Override
-    public String data() {
-        return data;
+    public String toString() {
+        String d = data;
+        return (d == null) ? "null-data" : d;
     }
 }

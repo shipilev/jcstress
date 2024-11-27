@@ -27,7 +27,6 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
 
@@ -42,16 +41,16 @@ public class Singleton_08_ThreadLocalWitness {
 
     // https://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html#ThreadLocal
 
-    static class ThreadLocalWitness implements Factory {
+    static class ThreadLocalWitness<T> implements Factory<T> {
         private final ThreadLocal<String> threadLocal;
-        private Holder value;
+        private T value;
 
         public ThreadLocalWitness() {
             this.threadLocal = new ThreadLocal<>();
         }
 
         @Override
-        public Holder get(Supplier<Holder> supplier) {
+        public T get(Supplier<T> supplier) {
             if (threadLocal.get() == null) {
                 synchronized(this) {
                     if (value == null) {
@@ -72,18 +71,18 @@ public class Singleton_08_ThreadLocalWitness {
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
-        final ThreadLocalWitness singleton = new ThreadLocalWitness();
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(singleton, () -> new FinalHolder("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(singleton, () -> new FinalHolder("data2")); }
+        ThreadLocalWitness<Object> factory = new ThreadLocalWitness<>();
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalHolder("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalHolder("data2")); }
     }
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
-        final ThreadLocalWitness singleton = new ThreadLocalWitness();
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(singleton, () -> new NonFinalHolder("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(singleton, () -> new NonFinalHolder("data2")); }
+        ThreadLocalWitness<Object> factory = new ThreadLocalWitness<>();
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
     }
 
     @JCStressTest
@@ -93,10 +92,10 @@ public class Singleton_08_ThreadLocalWitness {
             "null-factory, data2",
             "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
     public static class RacyPublication {
-        ThreadLocalWitness singleton;
-        @Actor public void construct() { singleton = new ThreadLocalWitness(); }
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(singleton, () -> new NonFinalHolder("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(singleton, () -> new NonFinalHolder("data2")); }
+        ThreadLocalWitness<Object> factory;
+        @Actor public void construct() { factory = new ThreadLocalWitness<>(); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
     }
 
 }

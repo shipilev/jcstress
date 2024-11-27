@@ -27,7 +27,6 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
 
@@ -35,11 +34,11 @@ import java.util.function.Supplier;
 
 public class Singleton_04_VolatileDCL {
 
-    public static class VolatileDCL implements Factory {
-        private volatile Holder instance;
+    public static class VolatileDCL<T> implements Factory<T> {
+        private volatile T instance;
 
         @Override
-        public Holder get(Supplier<Holder> supplier) {
+        public T get(Supplier<T> supplier) {
             if (instance == null) {
                 synchronized (this) {
                     if (instance == null) {
@@ -55,7 +54,7 @@ public class Singleton_04_VolatileDCL {
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Safe {
-        VolatileDCL factory = new VolatileDCL();
+        VolatileDCL<Object> factory = new VolatileDCL<>();
         @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalHolder("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalHolder("data2")); }
     }
@@ -64,7 +63,7 @@ public class Singleton_04_VolatileDCL {
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Unsafe {
-        VolatileDCL factory = new VolatileDCL();
+        VolatileDCL<Object> factory = new VolatileDCL<>();
         @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
     }
@@ -76,8 +75,8 @@ public class Singleton_04_VolatileDCL {
             "null-factory, data2",
             "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
     public static class RacyPublication {
-        VolatileDCL factory;
-        @Actor public void construct() { factory = new VolatileDCL(); }
+        VolatileDCL<Object> factory;
+        @Actor public void construct() { factory = new VolatileDCL<>(); }
         @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
     }

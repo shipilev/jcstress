@@ -27,7 +27,6 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
 
@@ -35,11 +34,11 @@ import java.util.function.Supplier;
 
 public class Singleton_02_Synchronized {
 
-    public static class Synchronized implements Factory {
-        private Holder instance;
+    public static class Synchronized<T> implements Factory<T> {
+        private T instance;
 
         @Override
-        public Holder get(Supplier<Holder> supplier) {
+        public T get(Supplier<T> supplier) {
             synchronized (this) {
                 if (instance == null) {
                     instance = supplier.get();
@@ -53,7 +52,7 @@ public class Singleton_02_Synchronized {
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
-        Synchronized factory = new Synchronized();
+        Synchronized<Object> factory = new Synchronized<>();
         @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalHolder("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalHolder("data2")); }
     }
@@ -62,7 +61,7 @@ public class Singleton_02_Synchronized {
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
-        Synchronized factory = new Synchronized();
+        Synchronized<Object> factory = new Synchronized<>();
         @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
     }
@@ -74,8 +73,8 @@ public class Singleton_02_Synchronized {
             "null-factory, data2",
             "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
     public static class RacyPublication {
-        Synchronized factory;
-        @Actor public void construct() { factory = new Synchronized(); }
+        Synchronized<Object> factory;
+        @Actor public void construct() { factory = new Synchronized<>(); }
         @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
     }

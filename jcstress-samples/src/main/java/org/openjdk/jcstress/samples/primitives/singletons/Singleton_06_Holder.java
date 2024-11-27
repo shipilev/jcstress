@@ -27,7 +27,6 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
 
@@ -35,25 +34,25 @@ import java.util.function.Supplier;
 
 public class Singleton_06_Holder {
 
-    public static class FinalHolderHolder implements Factory {
+    public static class FinalHolderHolder implements Factory<FinalHolder> {
         @Override
-        public Holder get(Supplier<Holder> supplier) {
+        public FinalHolder get(Supplier<FinalHolder> supplier) {
             return H.INSTANCE;
         }
 
         public static class H {
-            public static final Holder INSTANCE = new FinalHolder("data");
+            public static final FinalHolder INSTANCE = new FinalHolder("data");
         }
     }
 
-    public static class NonFinalHolderHolder implements Factory {
+    public static class NonFinalHolderHolder implements Factory<NonFinalHolder> {
         @Override
-        public Holder get(Supplier<Holder> supplier) {
-            return FinalHolderHolder.H.INSTANCE;
+        public NonFinalHolder get(Supplier<NonFinalHolder> supplier) {
+            return H.INSTANCE;
         }
 
         public static class H {
-            public static final Holder INSTANCE = new NonFinalHolder("data");
+            public static final NonFinalHolder INSTANCE = new NonFinalHolder("data");
         }
     }
 
