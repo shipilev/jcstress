@@ -34,7 +34,6 @@ import org.openjdk.jcstress.samples.primitives.lazy.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderSupplier;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
 
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
 import java.util.function.Supplier;
 
@@ -45,38 +44,29 @@ import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
     $ java -jar jcstress-samples/target/jcstress.jar -t LazyTest
 */
 
-public class Lazy_04_AcquireRelease {
+public class Lazy_05_Fenced {
 
-    static class AcquireReleaseLazy<T> implements Lazy<T> {
-        static final VarHandle VH;
-
-        static {
-            try {
-                VH = MethodHandles.lookup().findVarHandle(AcquireReleaseLazy.class, "factory", Supplier.class);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
+    static class FencedLazy<T> implements Lazy<T> {
         private Supplier<T> factory;
         private T value;
 
-        public AcquireReleaseLazy(final Supplier<T> factory) {
-            VH.setRelease(this, factory);
+        public FencedLazy(final Supplier<T> factory) {
+            this.factory = factory;
             VarHandle.storeStoreFence();
         }
 
         @Override
         public T get() {
-            if (VH.getAcquire(this) != null) {
+            if (factory != null) {
                 synchronized (this) {
-                    Supplier<T> factory = (Supplier<T>) VH.getAcquire(this);
                     if (factory != null) {
                         value = factory.get();
-                        VH.setRelease(this, null);
+                        VarHandle.releaseFence();
+                        factory = null;
                     }
                 }
             }
+            VarHandle.acquireFence();
             return value;
         }
     }
@@ -85,7 +75,7 @@ public class Lazy_04_AcquireRelease {
     @State
     @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Trivial.")
     public static class Basic {
-        Lazy<Holder> lazy = new AcquireReleaseLazy<>(new HolderSupplier());
+        Lazy<Holder> lazy = new FencedLazy<>(new HolderSupplier());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
@@ -94,7 +84,7 @@ public class Lazy_04_AcquireRelease {
     @State
     @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
     public static class NullHolder {
-        Lazy<Holder> lazy = new AcquireReleaseLazy<>(() -> null);
+        Lazy<Holder> lazy = new FencedLazy<>(() -> null);
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
@@ -106,7 +96,7 @@ public class Lazy_04_AcquireRelease {
     @Outcome(id = {"null-lazy"},      expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     public static class RacyOneWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new AcquireReleaseLazy<>(new HolderSupplier()); }
+        @Actor public void actor1() { lazy = new FencedLazy<>(new HolderSupplier()); }
         @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
     }
 
@@ -116,7 +106,7 @@ public class Lazy_04_AcquireRelease {
     @Outcome(id = {"null-lazy, data.", "data., null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     public static class RacyTwoWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new AcquireReleaseLazy<>(new HolderSupplier()); }
+        @Actor public void actor1() { lazy = new FencedLazy<>(new HolderSupplier()); }
         @Actor public void actor2(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor3(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
