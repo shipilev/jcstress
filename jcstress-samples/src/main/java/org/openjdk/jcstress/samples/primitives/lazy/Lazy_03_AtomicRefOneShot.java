@@ -38,6 +38,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
+import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE_INTERESTING;
 
 /*
     How to run this test:
@@ -46,11 +47,11 @@ import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
 
 public class Lazy_03_AtomicRefOneShot {
 
-    static class AtomicRefFactoryLazy<T> implements Lazy<T> {
+    static class AtomicRefLazy<T> implements Lazy<T> {
         private final AtomicReference<Supplier<T>> factoryRef;
         private T value;
 
-        public AtomicRefFactoryLazy(final Supplier<T> factory) {
+        public AtomicRefLazy(final Supplier<T> factory) {
             this.factoryRef = new AtomicReference<>(factory);
         }
 
@@ -71,9 +72,9 @@ public class Lazy_03_AtomicRefOneShot {
 
     @JCStressTest
     @State
-    @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Seeing a proper value.")
+    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Trivial.")
     public static class Basic {
-        Lazy<Holder> lazy = new AtomicRefFactoryLazy<>(new HolderSupplier());
+        Lazy<Holder> lazy = new AtomicRefLazy<>(new HolderSupplier());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
@@ -82,19 +83,31 @@ public class Lazy_03_AtomicRefOneShot {
     @State
     @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
     public static class NullHolder {
-        Lazy<Holder> lazy = new AtomicRefFactoryLazy<>(() -> null);
+        Lazy<Holder> lazy = new AtomicRefLazy<>(() -> null);
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
+
     @JCStressTest
     @State
-    @Outcome(id = "null-lazy", expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
-    @Outcome(id = "data",      expect = ACCEPTABLE, desc = "Seeing the proper data.")
-    public static class RacyPublication {
+    @Outcome(id = {"data1", "data2"}, expect = ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = {"null-lazy"},      expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    public static class RacyOneWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new AtomicRefFactoryLazy<>(new HolderSupplier()); }
+        @Actor public void actor1() { lazy = new AtomicRefLazy<>(new HolderSupplier()); }
         @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
+    }
+
+    @JCStressTest
+    @State
+    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = {"null-lazy, data.", "data., null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    public static class RacyTwoWay {
+        Lazy<Holder> lazy;
+        @Actor public void actor1() { lazy = new AtomicRefLazy<>(new HolderSupplier()); }
+        @Actor public void actor2(LL_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor3(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
 }
