@@ -48,7 +48,7 @@ public class Singleton_01_Unsynchronized {
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Whoa.")
+    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class Final {
         final Unsynchronized singleton = new Unsynchronized();
         @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new FinalHolder("data1"))); }
@@ -58,7 +58,7 @@ public class Singleton_01_Unsynchronized {
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
-    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Whoa.")
+    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class NonFinal {
         final Unsynchronized singleton = new Unsynchronized();
         @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new NonFinalHolder("data1"))); }

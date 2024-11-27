@@ -38,7 +38,6 @@ public class Singleton_05_AcquireReleaseDCL {
 
     public static class AcquireReleaseDCL {
         static final VarHandle VH;
-
         static {
             try {
                 VH = MethodHandles.lookup().findVarHandle(AcquireReleaseDCL.class, "instance", Holder.class);
@@ -50,17 +49,14 @@ public class Singleton_05_AcquireReleaseDCL {
         private Holder instance;
 
         public Holder get(Supplier<Holder> supplier) {
-            Holder holder = (Holder) VH.getAcquire(this);
-            if (holder == null) {
+            if (VH.getOpaque(this) == null) {
                 synchronized (this) {
-                    holder = (Holder) VH.get(this);
-                    if (holder == null) {
-                        holder = supplier.get();
-                        VH.setRelease(this, holder);
+                    if (VH.getOpaque(this) == null) {
+                        VH.setRelease(this, supplier.get());
                     }
                 }
             }
-            return holder;
+            return (Holder) VH.getAcquire(this);
         }
     }
 

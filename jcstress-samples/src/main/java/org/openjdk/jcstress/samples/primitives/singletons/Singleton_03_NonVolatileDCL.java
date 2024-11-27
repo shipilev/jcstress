@@ -51,7 +51,8 @@ public class Singleton_03_NonVolatileDCL {
 
     @JCStressTest
     @State
-    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")    public static class Final {
+    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
+    public static class Final {
         final NonVolatileDCL singleton = new NonVolatileDCL();
         @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new FinalHolder("data1"))); }
         @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new FinalHolder("data2"))); }

@@ -39,7 +39,6 @@ import java.util.function.Supplier;
 
 public class Singleton_08_ThreadLocalWitness {
 
-    // From:
     // https://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html#ThreadLocal
 
     static class ThreadLocalWitness {
@@ -58,8 +57,9 @@ public class Singleton_08_ThreadLocalWitness {
                     }
                 }
                 // NOTE: Original example sets threadLocal.set(threadLocal), but that constructs a memory leak.
-                // As the comments in the example correctly notes, any non-null value would do as the argument here,
-                // so we just put a String constant.
+                // As the comments in the example correctly note, any non-null value would do as the argument here,
+                // so we just put a String constant into it. This insulates us from putting anything that references
+                // a thread local into back into thread local itself.
                 threadLocal.set("seen");
             }
             return value;
@@ -83,6 +83,5 @@ public class Singleton_08_ThreadLocalWitness {
         @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new NonFinalHolder("data1"))); }
         @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new NonFinalHolder("data2"))); }
     }
-
 
 }
