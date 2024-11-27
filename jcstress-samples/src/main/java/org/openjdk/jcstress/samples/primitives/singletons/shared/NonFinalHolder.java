@@ -25,7 +25,11 @@
 package org.openjdk.jcstress.samples.primitives.singletons.shared;
 
 public class NonFinalHolder implements Holder {
-    String data = "data";
+    String data;
+
+    public NonFinalHolder(String data) {
+        this.data = data;
+    }
 
     @Override
     public String data() {

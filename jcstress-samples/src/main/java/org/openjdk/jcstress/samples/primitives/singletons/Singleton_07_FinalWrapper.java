@@ -35,44 +35,45 @@ import java.util.function.Supplier;
 public class Singleton_07_FinalWrapper {
 
     public static class FinalWrapper {
-        private FW wrapper;
+        private Wrapper wrapper;
 
-        public Holder getInstance(Supplier<Holder> s) {
-            // FIXME: Formally a data race here.
-            if (wrapper == null) {
+        public Holder get(Supplier<Holder> s) {
+            Wrapper w = wrapper;
+            if (w == null) {
                 synchronized(this) {
-                    if (wrapper == null) {
-                        wrapper = new FW(s.get());
+                    w = wrapper;
+                    if (w == null) {
+                        wrapper = w = new Wrapper(s.get());
                     }
                 }
             }
-            return wrapper.instance;
+            return w.h;
         }
 
-        private static class FW {
-            public final Holder instance;
-            public FW(Holder instance) {
-                this.instance = instance;
+        private static class Wrapper {
+            public final Holder h;
+            public Wrapper(Holder h) {
+                this.h = h;
             }
         }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
         final FinalWrapper singleton = new FinalWrapper();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.getInstance(FinalHolder::new)); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.getInstance(FinalHolder::new)); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new FinalHolder("data1"))); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new FinalHolder("data2"))); }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
         final FinalWrapper singleton = new FinalWrapper();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.getInstance(NonFinalHolder::new)); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.getInstance(NonFinalHolder::new)); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new NonFinalHolder("data1"))); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new NonFinalHolder("data2"))); }
     }
 
 }

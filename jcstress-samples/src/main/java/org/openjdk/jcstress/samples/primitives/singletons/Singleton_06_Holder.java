@@ -33,41 +33,41 @@ import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
 public class Singleton_06_Holder {
 
     public static class FinalHolderHolder {
-        public Holder getInstance() {
+        public Holder get() {
             return H.INSTANCE;
         }
 
         public static class H {
-            public static final Holder INSTANCE = new FinalHolder();
+            public static final Holder INSTANCE = new FinalHolder("data");
         }
     }
 
     public static class NonFinalHolderHolder {
-        public Holder getInstance() {
+        public Holder get() {
             return H.INSTANCE;
         }
 
         public static class H {
-            public static final Holder INSTANCE = new NonFinalHolder();
+            public static final Holder INSTANCE = new NonFinalHolder("data");
         }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
         final FinalHolderHolder singleton = new FinalHolderHolder();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.getInstance()); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.getInstance()); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get()); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get()); }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
         final NonFinalHolderHolder singleton = new NonFinalHolderHolder();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.getInstance()); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.getInstance()); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get()); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get()); }
     }
 
 }

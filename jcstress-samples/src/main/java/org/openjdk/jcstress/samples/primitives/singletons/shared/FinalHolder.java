@@ -25,7 +25,11 @@
 package org.openjdk.jcstress.samples.primitives.singletons.shared;
 
 public class FinalHolder implements Holder {
-    final String data = "data";
+    final String data;
+
+    public FinalHolder(String data) {
+        this.data = data;
+    }
 
     @Override
     public String data() {

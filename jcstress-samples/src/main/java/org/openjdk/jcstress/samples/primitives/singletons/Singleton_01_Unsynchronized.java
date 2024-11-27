@@ -37,7 +37,7 @@ public class Singleton_01_Unsynchronized {
     public static class Unsynchronized {
         private Holder instance;
 
-        public Holder getInstance(Supplier<Holder> supplier) {
+        public Holder get(Supplier<Holder> supplier) {
             if (instance == null) {
                 instance = supplier.get();
             }
@@ -47,24 +47,22 @@ public class Singleton_01_Unsynchronized {
 
     @JCStressTest
     @State
-    @Outcome(id = "data, null-data", expect = Expect.ACCEPTABLE_INTERESTING, desc = "Seeing singleton without data.")
-    @Outcome(id = "null-data, data", expect = Expect.ACCEPTABLE_INTERESTING, desc = "Seeing singleton without data.")
-    @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
+    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Whoa.")
     public static class Final {
         final Unsynchronized singleton = new Unsynchronized();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.getInstance(FinalHolder::new)); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.getInstance(FinalHolder::new)); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new FinalHolder("data1"))); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new FinalHolder("data2"))); }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = "data, null-data", expect = Expect.ACCEPTABLE_INTERESTING, desc = "Seeing singleton without data.")
-    @Outcome(id = "null-data, data", expect = Expect.ACCEPTABLE_INTERESTING, desc = "Seeing singleton without data.")
-    @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
+    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Whoa.")
     public static class NonFinal {
         final Unsynchronized singleton = new Unsynchronized();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.getInstance(NonFinalHolder::new)); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.getInstance(NonFinalHolder::new)); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new NonFinalHolder("data1"))); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new NonFinalHolder("data2"))); }
     }
 
 }

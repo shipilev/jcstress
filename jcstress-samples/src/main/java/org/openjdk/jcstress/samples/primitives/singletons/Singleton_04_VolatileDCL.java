@@ -37,7 +37,7 @@ public class Singleton_04_VolatileDCL {
     public static class VolatileDCLFactory {
         private volatile Holder instance;
 
-        public Holder getInstance(Supplier<Holder> supplier) {
+        public Holder get(Supplier<Holder> supplier) {
             if (instance == null) {
                 synchronized (this) {
                     if (instance == null) {
@@ -51,19 +51,19 @@ public class Singleton_04_VolatileDCL {
 
     @JCStressTest
     @State
-    @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Safe {
         final VolatileDCLFactory singleton = new VolatileDCLFactory();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.getInstance(FinalHolder::new)); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.getInstance(FinalHolder::new)); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new FinalHolder("data1"))); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new FinalHolder("data2"))); }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Unsafe {
         final VolatileDCLFactory singleton = new VolatileDCLFactory();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.getInstance(NonFinalHolder::new)); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.getInstance(NonFinalHolder::new)); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new NonFinalHolder("data1"))); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new NonFinalHolder("data2"))); }
     }
 }

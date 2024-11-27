@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -30,37 +30,39 @@ import org.openjdk.jcstress.samples.primitives.singletons.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.util.function.Supplier;
 
-public class Singleton_05_AcquireReleaseDCL {
+/*
+    How to run this test:
+    $ java -jar jcstress-samples/target/jcstress.jar -t LazyTest
+*/
 
-    public static class AcquireReleaseDCL {
-        static final VarHandle VH;
+public class Singleton_08_ThreadLocalWitness {
 
-        static {
-            try {
-                VH = MethodHandles.lookup().findVarHandle(AcquireReleaseDCL.class, "instance", Holder.class);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
+    // From:
+    // https://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html#ThreadLocal
+
+    static class ThreadLocalWitness {
+        private final ThreadLocal<String> threadLocal;
+        private Holder value;
+
+        public ThreadLocalWitness() {
+            this.threadLocal = new ThreadLocal<>();
         }
 
-        private Holder instance;
-
         public Holder get(Supplier<Holder> supplier) {
-            Holder holder = (Holder) VH.getAcquire(this);
-            if (holder == null) {
-                synchronized (this) {
-                    holder = (Holder) VH.get(this);
-                    if (holder == null) {
-                        holder = supplier.get();
-                        VH.setRelease(this, holder);
+            if (threadLocal.get() == null) {
+                synchronized(this) {
+                    if (value == null) {
+                        value = supplier.get();
                     }
                 }
+                // NOTE: Original example sets threadLocal.set(threadLocal), but that constructs a memory leak.
+                // As the comments in the example correctly notes, any non-null value would do as the argument here,
+                // so we just put a String constant.
+                threadLocal.set("seen");
             }
-            return holder;
+            return value;
         }
     }
 
@@ -68,7 +70,7 @@ public class Singleton_05_AcquireReleaseDCL {
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
-        final AcquireReleaseDCL singleton = new AcquireReleaseDCL();
+        final ThreadLocalWitness singleton = new ThreadLocalWitness();
         @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new FinalHolder("data1"))); }
         @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new FinalHolder("data2"))); }
     }
@@ -77,8 +79,10 @@ public class Singleton_05_AcquireReleaseDCL {
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
-        final AcquireReleaseDCL singleton = new AcquireReleaseDCL();
+        final ThreadLocalWitness singleton = new ThreadLocalWitness();
         @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new NonFinalHolder("data1"))); }
         @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new NonFinalHolder("data2"))); }
     }
+
+
 }
