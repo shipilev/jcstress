@@ -26,10 +26,7 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalSingleton;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalSingleton;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Singleton;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
 import java.util.function.Supplier;
 
@@ -62,8 +59,8 @@ public class Singleton_06_Holder {
     @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
         FinalHolderHolder factory = new FinalHolderHolder();
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, null); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, null); }
+        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, null); }
+        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, null); }
     }
 
     @JCStressTest
@@ -71,8 +68,8 @@ public class Singleton_06_Holder {
     @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
         NonFinalHolderHolder factory = new NonFinalHolderHolder();
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, null); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, null); }
+        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, null); }
+        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, null); }
     }
 
 }

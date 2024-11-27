@@ -26,8 +26,21 @@ package org.openjdk.jcstress.samples.primitives.singletons.shared;
 
 import java.util.function.Supplier;
 
-public interface Factory<T> {
+public class MapResult {
 
-    T get(Supplier<T> supplier);
+    public static String map(Factory<Singleton> factory, Supplier<Singleton> supplier) {
+        if (factory == null) {
+            return "null-factory";
+        }
+        Singleton singleton = factory.get(supplier);
+        if (singleton == null) {
+            return "null-singleton";
+        }
+        String data = singleton.data();
+        if (data == null) {
+            return "null-data";
+        }
+        return data;
+    }
 
 }

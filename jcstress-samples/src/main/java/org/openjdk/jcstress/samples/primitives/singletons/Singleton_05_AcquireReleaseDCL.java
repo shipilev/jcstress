@@ -26,10 +26,7 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalSingleton;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalSingleton;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Singleton;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.VarHandle;
@@ -67,8 +64,8 @@ public class Singleton_05_AcquireReleaseDCL {
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
         AcquireReleaseDCL<Singleton> factory = new AcquireReleaseDCL<>();
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalSingleton("data2")); }
+        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
 
     @JCStressTest
@@ -76,8 +73,8 @@ public class Singleton_05_AcquireReleaseDCL {
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
         AcquireReleaseDCL<Singleton> factory = new AcquireReleaseDCL<>();
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalSingleton("data2")); }
+        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new NonFinalSingleton("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new NonFinalSingleton("data2")); }
     }
 
     @JCStressTest
@@ -86,10 +83,10 @@ public class Singleton_05_AcquireReleaseDCL {
     @Outcome(id = {"data1, null-factory",
                    "null-factory, data2",
                    "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
-    public static class RacyPublication {
+    public static class RacyFactory {
         AcquireReleaseDCL<Singleton> factory;
         @Actor public void construct() { factory = new AcquireReleaseDCL<>(); }
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalSingleton("data2")); }
+        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
 }

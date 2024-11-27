@@ -26,10 +26,7 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalSingleton;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalSingleton;
-import org.openjdk.jcstress.samples.primitives.singletons.shared.Singleton;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
 import java.util.function.Supplier;
 
@@ -53,8 +50,8 @@ public class Singleton_01_Unsynchronized {
     @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class Final {
         Unsynchronized<Singleton> factory = new Unsynchronized<>();
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalSingleton("data2")); }
+        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
 
     @JCStressTest
@@ -63,8 +60,8 @@ public class Singleton_01_Unsynchronized {
     @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class NonFinal {
         Unsynchronized<Singleton> factory = new Unsynchronized<>();
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalSingleton("data2")); }
+        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new NonFinalSingleton("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new NonFinalSingleton("data2")); }
     }
 
     @JCStressTest
@@ -74,11 +71,11 @@ public class Singleton_01_Unsynchronized {
             "null-factory, data2",
             "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
     @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
-    public static class RacyPublication {
+    public static class RacyFactory {
         Unsynchronized<Singleton> factory;
         @Actor public void construct() { factory = new Unsynchronized<>(); }
-        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalSingleton("data1")); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalSingleton("data2")); }
+        @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
 
 }
