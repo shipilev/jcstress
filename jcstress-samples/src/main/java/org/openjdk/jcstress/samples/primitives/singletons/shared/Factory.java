@@ -24,12 +24,25 @@
  */
 package org.openjdk.jcstress.samples.primitives.singletons.shared;
 
-
 import java.util.function.Supplier;
 
-public interface Holder {
+public interface Factory {
 
-    String data();
+    Holder get(Supplier<Holder> supplier);
 
+    static String map(Factory factory, Supplier<Holder> supplier) {
+        if (factory == null) {
+            return "null-factory";
+        }
+        Holder holder = factory.get(supplier);
+        if (holder == null) {
+            return "null-holder";
+        }
+        String data = holder.data();
+        if (data == null) {
+            return "null-data";
+        }
+        return data;
+    }
 
 }

@@ -26,6 +26,7 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
@@ -34,9 +35,10 @@ import java.util.function.Supplier;
 
 public class Singleton_01_Unsynchronized {
 
-    public static class Unsynchronized {
+    public static class Unsynchronized implements Factory {
         private Holder instance;
 
+        @Override
         public Holder get(Supplier<Holder> supplier) {
             if (instance == null) {
                 instance = supplier.get();
@@ -50,9 +52,9 @@ public class Singleton_01_Unsynchronized {
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class Final {
-        final Unsynchronized singleton = new Unsynchronized();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new FinalHolder("data1"))); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new FinalHolder("data2"))); }
+        Unsynchronized factory = new Unsynchronized();
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new FinalHolder("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new FinalHolder("data2")); }
     }
 
     @JCStressTest
@@ -60,9 +62,23 @@ public class Singleton_01_Unsynchronized {
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
     public static class NonFinal {
-        final Unsynchronized singleton = new Unsynchronized();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new NonFinalHolder("data1"))); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new NonFinalHolder("data2"))); }
+        Unsynchronized factory = new Unsynchronized();
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
+    }
+
+    @JCStressTest
+    @State
+    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = {"data1, null-factory",
+            "null-factory, data2",
+            "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
+    @Outcome(expect = Expect.ACCEPTABLE_INTERESTING, desc = "Race condition.")
+    public static class RacyPublication {
+        Unsynchronized factory;
+        @Actor public void construct() { factory = new Unsynchronized(); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, () -> new NonFinalHolder("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, () -> new NonFinalHolder("data2")); }
     }
 
 }

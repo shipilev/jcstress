@@ -26,14 +26,18 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
 
+import java.util.function.Supplier;
+
 public class Singleton_06_Holder {
 
-    public static class FinalHolderHolder {
-        public Holder get() {
+    public static class FinalHolderHolder implements Factory {
+        @Override
+        public Holder get(Supplier<Holder> supplier) {
             return H.INSTANCE;
         }
 
@@ -42,9 +46,10 @@ public class Singleton_06_Holder {
         }
     }
 
-    public static class NonFinalHolderHolder {
-        public Holder get() {
-            return H.INSTANCE;
+    public static class NonFinalHolderHolder implements Factory {
+        @Override
+        public Holder get(Supplier<Holder> supplier) {
+            return FinalHolderHolder.H.INSTANCE;
         }
 
         public static class H {
@@ -56,18 +61,18 @@ public class Singleton_06_Holder {
     @State
     @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
-        final FinalHolderHolder singleton = new FinalHolderHolder();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get()); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get()); }
+        FinalHolderHolder factory = new FinalHolderHolder();
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, null); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, null); }
     }
 
     @JCStressTest
     @State
     @Outcome(id = "data, data", expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
-        final NonFinalHolderHolder singleton = new NonFinalHolderHolder();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get()); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get()); }
+        NonFinalHolderHolder factory = new NonFinalHolderHolder();
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(factory, null); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(factory, null); }
     }
 
 }

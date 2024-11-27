@@ -26,6 +26,7 @@ package org.openjdk.jcstress.samples.primitives.singletons;
 
 import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
+import org.openjdk.jcstress.samples.primitives.singletons.shared.Factory;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.FinalHolder;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.NonFinalHolder;
@@ -34,9 +35,10 @@ import java.util.function.Supplier;
 
 public class Singleton_07_FinalWrapper {
 
-    public static class FinalWrapper {
+    public static class FinalWrapper implements Factory {
         private Wrapper wrapper;
 
+        @Override
         public Holder get(Supplier<Holder> s) {
             Wrapper w = wrapper;
             if (w == null) {
@@ -63,8 +65,8 @@ public class Singleton_07_FinalWrapper {
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
         final FinalWrapper singleton = new FinalWrapper();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new FinalHolder("data1"))); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new FinalHolder("data2"))); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(singleton, () -> new FinalHolder("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(singleton, () -> new FinalHolder("data2")); }
     }
 
     @JCStressTest
@@ -72,8 +74,21 @@ public class Singleton_07_FinalWrapper {
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
         final FinalWrapper singleton = new FinalWrapper();
-        @Actor public void actor1(LL_Result r) { r.r1 = Holder.map(singleton.get(() -> new NonFinalHolder("data1"))); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Holder.map(singleton.get(() -> new NonFinalHolder("data2"))); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(singleton, () -> new NonFinalHolder("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(singleton, () -> new NonFinalHolder("data2")); }
+    }
+
+    @JCStressTest
+    @State
+    @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = {"data1, null-factory",
+            "null-factory, data2",
+            "null-factory, null-factory" }, expect = Expect.ACCEPTABLE, desc = "Factory was not published yet.")
+    public static class RacyPublication {
+        FinalWrapper singleton;
+        @Actor public void construct() { singleton = new FinalWrapper(); }
+        @Actor public void actor1(LL_Result r) { r.r1 = Factory.map(singleton, () -> new NonFinalHolder("data1")); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Factory.map(singleton, () -> new NonFinalHolder("data2")); }
     }
 
 }
