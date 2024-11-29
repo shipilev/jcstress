@@ -30,11 +30,11 @@ import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
 import java.util.function.Supplier;
 
-public class Singleton_07_Holder {
+public class Singleton_09_Holder {
 
     /*
         How to run this test:
-            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_07
+            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_09
      */
 
     /*

@@ -68,16 +68,18 @@ public class Lazy_04_AcquireRelease {
 
         @Override
         public T get() {
-            if (VH.getAcquire(this) != null) {
-                synchronized (this) {
-                    Supplier<T> factory = (Supplier<T>) VH.getAcquire(this);
-                    if (factory != null) {
-                        value = factory.get();
-                        VH.setRelease(this, null);
-                    }
-                }
+            if (VH.getAcquire(this) == null) {
+                return value;
             }
-            return value;
+
+            synchronized (this) {
+                Supplier<T> factory = (Supplier<T>) VH.get(this);
+                if (factory != null) {
+                    value = factory.get();
+                    VH.setRelease(this, null);
+                }
+                return value;
+            }
         }
     }
 

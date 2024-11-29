@@ -28,11 +28,9 @@ import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.VarHandle;
 import java.util.function.Supplier;
 
-public class Singleton_08_AcquireReleaseDCL {
+public class Singleton_08_FinalWrapper {
 
     /*
         How to run this test:
@@ -42,82 +40,75 @@ public class Singleton_08_AcquireReleaseDCL {
     /*
         ----------------------------------------------------------------------------------------------------------
 
-        This example is here for completeness.
+        You might have noticed that Singleton_07_BrokenNonVolatileDCL example still works well, as long
+        as we store the safely constructed singleton instances. This allows us to survive races even without
+        volatiles or acquires! We can exploit this by wrapping the singleton in the _final wrapper_, so that
+        it allows us to survive the races, no matter if the singleton itself is safely constructed.
 
-        If one studies Singleton_05_DCL example more deeply, then one can ask whether the full-blown volatile
-        is even needed. The short answer is: it is not needed.
+        See BasicJMM_08_Finals for more examples on finals. This construction is similar to BasicJMM_09_BenignRaces.
 
-        We only need two things here:
-          1. Causality between seeing the instance and its contents. A release/acquire chain would give us
-             the required semantics. (3) -> (4) provides that chain. See BasicJMM_06_Causality example for
-             more discussion.
-          2. Coherence between unsynchronized loads. Plain field reads are not coherent, but opaque reads are.
-             (1) -> (4), (2) -> (4) chains provides the coherence. See BasicJMM_05_Coherence example for
-             more discussion. Note: one can avoid even thinking about this, if we just read-acquire once
-             in a local variable. For learning, it is useful to think about the ordering between two reads
-             in this example.
-
-         This might improve performance on weakly-ordered platforms, where the sequentially-consistent loads
-         are more heavy-weight than acquire loads.
+        The downside of this approach is another dereference when accessing the object, as well as a bit more
+        memory spent for wrappers themselves.
      */
 
-    public static class AcquireReleaseDCL<T> implements Factory<T> {
-        static final VarHandle VH;
-        static {
-            try {
-                VH = MethodHandles.lookup().findVarHandle(AcquireReleaseDCL.class, "instance", Object.class);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        private T instance;
+    public static class FinalWrapper<T> implements Factory<T> {
+        private Wrapper<T> wrapper;
 
         @Override
         public T get(Supplier<T> supplier) {
-            if (VH.getOpaque(this) == null) {                   // (1)
-                synchronized (this) {
-                    if (VH.getOpaque(this) == null) {           // (2)
-                        VH.setRelease(this, supplier.get());    // (3)
-                    }
-                }
+            Wrapper<T> w = wrapper;
+            if (w != null) {
+                return w.value;
             }
-            return (T) VH.getAcquire(this);                     // (4)
+
+            synchronized (this) {
+                if (wrapper == null) {
+                    wrapper = new Wrapper<>(supplier.get());
+                }
+                return wrapper.value;
+            }
+        }
+
+        private static class Wrapper<T> {
+            public final T value;
+            public Wrapper(T value) {
+                this.value = value;
+            }
         }
     }
 
     /*
-        This implementation works on all platforms.
+        Not surprisingly, this example works with final singletons.
 
         x86_64, AArch64:
                 RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
-          data1, data1  2,421,292,475   52.14%  Acceptable  Trivial.
-          data2, data2  2,222,928,909   47.86%  Acceptable  Trivial.
-       */
+          data1, data1  1,234,160,020   59.42%  Acceptable  Trivial.
+          data2, data2    842,678,324   40.58%  Acceptable  Trivial.
+     */
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
-        AcquireReleaseDCL<Singleton> factory = new AcquireReleaseDCL<>();
+        FinalWrapper<Singleton> factory = new FinalWrapper<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
 
-     /*
-        This implementation works on all platforms.
+    /*
+        What we gain here is proper behavior with non-final singletons!
 
         x86_64, AArch64:
                 RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
-          data1, data1  2,166,322,137   57.64%  Acceptable  Trivial.
-          data2, data2  1,591,873,007   42.36%  Acceptable  Trivial.
-       */
+          data1, data1  1,092,867,901   58.10%  Acceptable  Trivial.
+          data2, data2    788,130,443   41.90%  Acceptable  Trivial.
+     */
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
-        AcquireReleaseDCL<Singleton> factory = new AcquireReleaseDCL<>();
+        FinalWrapper<Singleton> factory = new FinalWrapper<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new NonFinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new NonFinalSingleton("data2")); }
     }

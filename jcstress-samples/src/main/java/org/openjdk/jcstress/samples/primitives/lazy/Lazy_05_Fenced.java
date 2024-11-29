@@ -57,17 +57,19 @@ public class Lazy_05_Fenced {
 
         @Override
         public T get() {
-            if (factory != null) {
-                synchronized (this) {
-                    if (factory != null) {
-                        value = factory.get();
-                        VarHandle.releaseFence();
-                        factory = null;
-                    }
-                }
+            if (factory == null) {
+                VarHandle.acquireFence();
+                return value;
             }
-            VarHandle.acquireFence();
-            return value;
+
+            synchronized (this) {
+                if (factory != null) {
+                    value = factory.get();
+                    VarHandle.releaseFence();
+                    factory = null;
+                }
+                return value;
+            }
         }
     }
 

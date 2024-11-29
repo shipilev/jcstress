@@ -41,14 +41,35 @@ public class Singleton_05_DCL {
         ----------------------------------------------------------------------------------------------------------
 
         All the observations and samples so far provide us with the building blocks for so called
-        "Double-Checked Locking" pattern. See how two features work in tandem to solve all problems:
+        "Double-Checked Locking" pattern. This is the most common way to achieve singleton properties.
+        It performs well in the majority of cases, and requires no deep analysis for correctness.
+
+        You might know this pattern by this form:
+
+            @Override
+            public T get(Supplier<T> supplier) {
+                if (instance == null) {                 // Check 1
+                    synchronized (this) {               // Lock
+                        if (instance == null) {         // Check 2
+                            instance = supplier.get();
+                        }
+                    }
+                }
+                return instance;
+            }
+
+        See how two features work in tandem to solve all problems:
            1. Mutual exclusion to execute the supplier once is handled by synchronized block.
            2. Safe publication of `instance` is guaranteed by volatile. This is important because some
-              readers might not enter the synchronized block at all, so we need to cover that path.
-           3. All interleavings are resolved by checking the `instance`, and going into recovery path on failure.
+              readers might not enter the slow path.
+           3. All interleaving is resolved by checking the `instance`, and going into slow path on failure.
 
-        This is the most common way to achieve singleton properties. It performs well in the majority of cases,
-        and requires no deep analysis for correctness.
+        In this and the following examples, we are going to be using a variant of that code that is easier
+        to modify for different primitives, and is arguably easier to reason about.
+
+        2+ threads coming to slow path is the easiest case to think about: everything there happens under
+        the lock. 2+ threads coming to fast path have no conflicts either: they only read instance. The only
+        case we need to think through is what happens if 1 thread is in slow path, and another is in fast path.
      */
 
     public static class DCL<T> implements Factory<T> {
@@ -56,14 +77,20 @@ public class Singleton_05_DCL {
 
         @Override
         public T get(Supplier<T> supplier) {
-            if (instance == null) {
-                synchronized (this) {
-                    if (instance == null) {
-                        instance = supplier.get();
-                    }
-                }
+            // Fast path: care about correctness+performance.
+            T t = instance;
+            if (t != null) {
+                return t;
             }
-            return instance;
+
+            // Slow path: care about correctness only.
+            // This is effectively the body of Singleton_04_InefficientSynchronized sample.
+            synchronized (this) {
+                if (instance == null) {
+                    instance = supplier.get();
+                }
+                return instance;
+            }
         }
     }
 

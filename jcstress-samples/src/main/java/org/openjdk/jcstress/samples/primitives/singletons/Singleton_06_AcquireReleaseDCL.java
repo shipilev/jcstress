@@ -28,75 +28,91 @@ import org.openjdk.jcstress.annotations.*;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
 import java.util.function.Supplier;
 
-public class Singleton_09_FinalWrapper {
+public class Singleton_06_AcquireReleaseDCL {
 
     /*
         How to run this test:
-            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_09
+            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_06
      */
 
     /*
         ----------------------------------------------------------------------------------------------------------
 
-        This example is here for completeness.
 
-        Another way to avoid
         If one studies Singleton_05_DCL example more deeply, then one can ask whether the full-blown volatile
-        is even needed. The short answer is: it is not needed.
+        is even needed. The answer is: it is not needed. We only need the release-acquire chain between the store
+        of instance and the unsynchronized load of it. See BasicJMM_06_Causality example for basic example of this.
 
-        We only need two things here:
-          1. Causality between seeing the instance and its contents. A release/acquire chain would give us
-             the required semantics. (3) -> (4) provides that chain. See BasicJMM_06_Causality example for
-             more discussion.
-          2. Coherence between unsynchronized loads. Plain field reads are not coherent, but opaque reads are.
-             (1) -> (4), (2) -> (4) chains provides the coherence. See BasicJMM_05_Coherence example for
-             more discussion.
-
-         This might improve performance on weakly-ordered platforms, where the sequentially-consistent loads
-         are more heavy-weight than acquire loads.
+        Acquire-release is relatively easy to construct with VarHandles, see below. This might improve performance
+        on weakly-ordered platforms, where the sequentially-consistent loads. are more heavy-weight than acquire loads.
+        In overwhelming majority of cases optimizing this is not worth it. We will look at this example for the sake
+        of completeness.
      */
 
-    public static class FinalWrapper<T> implements Factory<T> {
-        private Wrapper<T> wrapper;
-
-        @Override
-        public T get(Supplier<T> s) {
-            Wrapper<T> w = wrapper;
-            if (w == null) {
-                synchronized(this) {
-                    w = wrapper;
-                    if (w == null) {
-                        wrapper = w = new Wrapper<>(s.get());
-                    }
-                }
+    public static class AcquireReleaseDCL<T> implements Factory<T> {
+        static final VarHandle VH;
+        static {
+            try {
+                VH = MethodHandles.lookup().findVarHandle(AcquireReleaseDCL.class, "instance", Object.class);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                throw new RuntimeException(e);
             }
-            return w.t;
         }
 
-        private static class Wrapper<T> {
-            public final T t;
-            public Wrapper(T t) {
-                this.t = t;
+        private T instance;
+
+        @Override
+        public T get(Supplier<T> supplier) {
+            T res = (T) VH.getAcquire(this);
+            if (res != null) {
+                return res;
+            }
+
+            synchronized (this) {
+                if (VH.get(this) == null) {
+                    VH.setRelease(this, supplier.get());
+                }
+                return (T) VH.get(this);
             }
         }
     }
+
+    /*
+        This implementation works on all platforms.
+
+        x86_64, AArch64:
+                RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data1, data1  2,421,292,475   52.14%  Acceptable  Trivial.
+          data2, data2  2,222,928,909   47.86%  Acceptable  Trivial.
+       */
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class Final {
-        FinalWrapper<Singleton> factory = new FinalWrapper<>();
+        AcquireReleaseDCL<Singleton> factory = new AcquireReleaseDCL<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
+
+     /*
+        This implementation works on all platforms.
+
+        x86_64, AArch64:
+                RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data1, data1  2,166,322,137   57.64%  Acceptable  Trivial.
+          data2, data2  1,591,873,007   42.36%  Acceptable  Trivial.
+       */
 
     @JCStressTest
     @State
     @Outcome(id = {"data1, data1", "data2, data2" }, expect = Expect.ACCEPTABLE, desc = "Trivial.")
     public static class NonFinal {
-        FinalWrapper<Singleton> factory = new FinalWrapper<>();
+        AcquireReleaseDCL<Singleton> factory = new AcquireReleaseDCL<>();
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new NonFinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new NonFinalSingleton("data2")); }
     }

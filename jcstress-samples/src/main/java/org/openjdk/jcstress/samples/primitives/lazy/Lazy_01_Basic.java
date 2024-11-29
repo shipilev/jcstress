@@ -60,15 +60,18 @@ public class Lazy_01_Basic {
 
         @Override
         public T get() {
-            if (value == null) {
-                synchronized (this) {
-                    if (value == null && !used) {
-                        used = true;
-                        value = factory.get();
-                    }
-                }
+            T v = value;
+            if (v != null || used) {
+                return v;
             }
-            return value;
+
+            synchronized (this) {
+                if (value == null && !used) {
+                    used = true;
+                    value = factory.get();
+                }
+                return value;
+            }
         }
     }
 

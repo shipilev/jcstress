@@ -55,15 +55,17 @@ public class Lazy_02_BrokenOneShot {
 
         @Override
         public T get() {
-            if (factory != null) {
-                synchronized (this) {
-                    if (factory != null) {
-                        value = factory.get();
-                        factory = null;
-                    }
-                }
+            if (factory == null) {
+                return value;
             }
-            return value;
+
+            synchronized (this) {
+                if (factory != null) {
+                    value = factory.get();
+                    factory = null;
+                }
+                return value;
+            }
         }
     }
 

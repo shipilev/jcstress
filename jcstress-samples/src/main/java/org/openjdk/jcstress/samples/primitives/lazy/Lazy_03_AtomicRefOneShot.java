@@ -57,16 +57,17 @@ public class Lazy_03_AtomicRefOneShot {
 
         @Override
         public T get() {
-            if (factoryRef.get() != null) {
-                synchronized (this) {
-                    Supplier<T> factory = factoryRef.get();
-                    if (factory != null) {
-                        value = factory.get();
-                        factoryRef.set(null);
-                    }
-                }
+            if (factoryRef.get() == null) {
+                return value;
             }
-            return value;
+
+            synchronized (this) {
+                if (factoryRef.get() != null) {
+                   value = factoryRef.get().get();
+                   factoryRef.set(null);
+                }
+                return value;
+            }
         }
     }
 

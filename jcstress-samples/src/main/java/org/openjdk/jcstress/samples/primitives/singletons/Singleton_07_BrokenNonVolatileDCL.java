@@ -30,18 +30,19 @@ import org.openjdk.jcstress.samples.primitives.singletons.shared.*;
 
 import java.util.function.Supplier;
 
-public class Singleton_06_BrokenNonVolatileDCL {
+public class Singleton_07_BrokenNonVolatileDCL {
 
     /*
         How to run this test:
-            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_06
+            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_07
      */
 
     /*
         ----------------------------------------------------------------------------------------------------------
 
         A very common antipattern is omitting `volatile` from the instance field. The reason why it is broken
-        should be obvious after looking at previous examples, this breaks safe publication guarantees.
+        should be obvious after looking at previous examples, this breaks safe publication guarantees, as the
+        read of instance on fast path has no memory ordering at all.
      */
 
     public static class NonVolatileDCL<T> implements Factory<T> {
@@ -49,14 +50,17 @@ public class Singleton_06_BrokenNonVolatileDCL {
 
         @Override
         public T get(Supplier<T> supplier) {
-            if (instance == null) {
-                synchronized (this) {
-                    if (instance == null) {
-                        instance = supplier.get();
-                    }
-                }
+            T res = instance;
+            if (res != null) {
+                return res;
             }
-            return instance;
+
+            synchronized (this) {
+                if (instance == null) {
+                    instance = supplier.get();
+                }
+                return instance;
+            }
         }
     }
 
