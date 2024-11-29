@@ -1,5 +1,5 @@
 /*
- * Copyright Amazon.com Inc. or its affiliates. All Rights Reserved.
+ * Copyright (c) 2014, 2015, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -24,23 +24,18 @@
  */
 package org.openjdk.jcstress.samples.primitives.lazy.shared;
 
-public interface Lazy<T> {
-    T get();
+import java.util.function.Supplier;
 
-    static String map(Lazy<Holder> lazy) {
-        if (lazy == null) {
-            return "null-lazy";
+public class NullHolderFactory implements Supplier<Holder> {
+
+    boolean first = true;
+
+    @Override
+    public Holder get() {
+        if (first) {
+            first = false;
+            return null;
         }
-        try {
-            Holder holder = lazy.get();
-            if (holder == null) {
-                return "null-holder";
-            }
-            return holder.data;
-        } catch (SupplierDupException e) {
-            return "dup";
-        } catch (Exception e) {
-            return "exception";
-        }
+        throw new SupplierDupException();
     }
 }

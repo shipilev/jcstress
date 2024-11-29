@@ -31,7 +31,7 @@ import org.openjdk.jcstress.annotations.State;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.infra.results.L_Result;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Holder;
-import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderSupplier;
+import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderFactory;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
 
 import java.lang.invoke.MethodHandles;
@@ -45,7 +45,7 @@ import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
     $ java -jar jcstress-samples/target/jcstress.jar -t LazyTest
 */
 
-public class Lazy_04_AcquireRelease {
+public class Lazy_06_AcquireRelease {
 
     static class AcquireReleaseLazy<T> implements Lazy<T> {
         static final VarHandle VH;
@@ -87,7 +87,7 @@ public class Lazy_04_AcquireRelease {
     @State
     @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Trivial.")
     public static class Basic {
-        Lazy<Holder> lazy = new AcquireReleaseLazy<>(new HolderSupplier());
+        Lazy<Holder> lazy = new AcquireReleaseLazy<>(new HolderFactory());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
@@ -108,7 +108,7 @@ public class Lazy_04_AcquireRelease {
     @Outcome(id = "null-lazy", expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     public static class RacyOneWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new AcquireReleaseLazy<>(new HolderSupplier()); }
+        @Actor public void actor1() { lazy = new AcquireReleaseLazy<>(new HolderFactory()); }
         @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
     }
 
@@ -118,7 +118,7 @@ public class Lazy_04_AcquireRelease {
     @Outcome(id = {"null-lazy, data", "data, null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     public static class RacyTwoWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new AcquireReleaseLazy<>(new HolderSupplier()); }
+        @Actor public void actor1() { lazy = new AcquireReleaseLazy<>(new HolderFactory()); }
         @Actor public void actor2(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor3(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }

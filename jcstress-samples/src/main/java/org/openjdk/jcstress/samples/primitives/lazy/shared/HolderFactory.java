@@ -26,7 +26,7 @@ package org.openjdk.jcstress.samples.primitives.lazy.shared;
 
 import java.util.function.Supplier;
 
-public class NullHolderSupplier implements Supplier<Holder> {
+public class HolderFactory implements Supplier<Holder> {
 
     boolean first = true;
 
@@ -34,8 +34,8 @@ public class NullHolderSupplier implements Supplier<Holder> {
     public Holder get() {
         if (first) {
             first = false;
-            return null;
+            return new Holder("data");
         }
-        throw new IllegalStateException("Multiple gets");
+        throw new SupplierDupException();
     }
 }

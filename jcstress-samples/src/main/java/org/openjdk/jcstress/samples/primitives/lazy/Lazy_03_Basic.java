@@ -25,90 +25,127 @@
 package org.openjdk.jcstress.samples.primitives.lazy;
 
 import org.openjdk.jcstress.annotations.*;
-import org.openjdk.jcstress.infra.results.LLZ_Result;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.infra.results.L_Result;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Holder;
-import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderSupplier;
+import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderFactory;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
-import org.openjdk.jcstress.samples.primitives.lazy.shared.NullHolderSupplier;
+import org.openjdk.jcstress.samples.primitives.lazy.shared.NullHolderFactory;
 
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
-import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE_INTERESTING;
 
-/*
-    How to run this test:
-    $ java -jar jcstress-samples/target/jcstress.jar -t LazyTest
-*/
+public class Lazy_03_Basic {
 
-public class Lazy_02_BrokenOneShot {
+    /*
+        How to run this test:
+            $ java -jar jcstress-samples/target/jcstress.jar -t Lazy_03
+    */
 
-    static class BrokenOneShotLazy<T> implements Lazy<T> {
-        private volatile Supplier<T> factory;
+    /*
+        ----------------------------------------------------------------------------------------------------------
+
+        Mindful of failures from the previous two examples, we can build a viable implementation like below.
+        This is a double-checked locking on `set` field. `instance` rides on the release-acquire chain that
+        stores and loads of `set` form.
+     */
+
+    static class BasicLazy<T> implements Lazy<T> {
+        private final Supplier<T> factory;
+        private volatile boolean set;
         private T instance;
 
-        public BrokenOneShotLazy(Supplier<T> factory) {
+        public BasicLazy(Supplier<T> factory) {
             this.factory = factory;
         }
 
         @Override
         public T get() {
-            if (factory == null) {
+            if (set) {
                 return instance;
             }
 
             synchronized (this) {
-                if (factory != null) {
+                if (!set) {
                     instance = factory.get();
-                    factory = null;
+                    set = true;
                 }
                 return instance;
             }
         }
     }
 
+    /*
+        As expected, this performs well on all platforms.
+
+        x86_64, AArch64:
+              RESULT      SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data, data  789,875,144  100.00%  Acceptable  Seeing the proper data.
+     */
+
     @JCStressTest
     @State
     @Outcome(id = {"data, data"}, expect = ACCEPTABLE, desc = "Seeing the proper data.")
     public static class Basic {
-        Lazy<Holder> lazy = new BrokenOneShotLazy<>(new HolderSupplier());
+        Lazy<Holder> lazy = new BasicLazy<>(new HolderFactory());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
+
+    /*
+        It also handles nulls from the factory well.
+
+        x86_64, AArch64:
+                            RESULT      SAMPLES     FREQ      EXPECT  DESCRIPTION
+          null-holder, null-holder  822,550,984  100.00%  Acceptable  Seeing a null holder.
+     */
 
     @JCStressTest
     @State
     @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
     public static class NullHolder {
-        Lazy<Holder> lazy = new BrokenOneShotLazy<>(new NullHolderSupplier());
+        Lazy<Holder> lazy = new BasicLazy<>(new NullHolderFactory());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
+    /*
+        And it survives races on `Lazy` itself well:
+
+        x86_64, AArch64:
+             RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+               data    786,159,357   35.38%  Acceptable  Trivial.
+          null-lazy  1,435,800,267   64.62%  Acceptable  Lazy instance not seen yet.
+     */
+
     @JCStressTest
     @State
-    @Outcome(id = {"data"},        expect = ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"null-lazy"},   expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
-    @Outcome(id = {"null-holder"}, expect = ACCEPTABLE_INTERESTING, desc = "Seeing uninitialized holder!")
+    @Outcome(id = "null-lazy", expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    @Outcome(id = "data",      expect = ACCEPTABLE, desc = "Trivial.")
     public static class RacyOneWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1()           { lazy = new BrokenOneShotLazy<>(new HolderSupplier()); }
+        @Actor public void actor1()           { lazy = new BasicLazy<>(new HolderFactory()); }
         @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
     }
+
+    /*
+        x86_64, AArch64:
+                        RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+                    data, data    710,263,631   16.81%  Acceptable  Trivial.
+               data, null-lazy    727,927,021   17.22%  Acceptable  Lazy instance not seen yet.
+               null-lazy, data    793,749,671   18.78%  Acceptable  Lazy instance not seen yet.
+          null-lazy, null-lazy  1,994,531,161   47.19%  Acceptable  Lazy instance not seen yet.
+     */
 
     @JCStressTest
     @State
     @Outcome(id = {"data, data"}, expect = ACCEPTABLE, desc = "Trivial.")
     @Outcome(id = {"null-lazy, data", "data, null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
-    @Outcome(id = {"null-holder, .*", ".*, null-holder"}, expect = ACCEPTABLE_INTERESTING, desc = "Seeing uninitialized holder!")
     public static class RacyTwoWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new BrokenOneShotLazy<>(new HolderSupplier()); }
+        @Actor public void actor1()            { lazy = new BasicLazy<>(new HolderFactory()); }
         @Actor public void actor2(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor3(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
-
 }

@@ -24,18 +24,9 @@
  */
 package org.openjdk.jcstress.samples.primitives.lazy.shared;
 
-import java.util.function.Supplier;
-
-public class HolderSupplier implements Supplier<Holder> {
-
-    boolean first = true;
-
+public class SupplierDupException extends RuntimeException {
     @Override
-    public Holder get() {
-        if (first) {
-            first = false;
-            return new Holder("data");
-        }
-        throw new IllegalStateException("Multiple gets");
+    public synchronized Throwable fillInStackTrace() {
+        return this;
     }
 }
