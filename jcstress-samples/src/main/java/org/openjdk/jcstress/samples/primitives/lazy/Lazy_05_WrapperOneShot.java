@@ -35,84 +35,103 @@ import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderFactory;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.NullHolderFactory;
 
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
 import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
 
-public class Lazy_05_AtomicRefOneShot {
+public class Lazy_05_WrapperOneShot {
 
    /*
         How to run this test:
-            $ java -jar jcstress-samples/target/jcstress.jar -t Lazy_04
+            $ java -jar jcstress-samples/target/jcstress.jar -t Lazy_05
     */
 
     /*
         ----------------------------------------------------------------------------------------------------------
 
         Lazy_04_BrokenOneShot shows us we cannot have `volatile` field have the `final` semantics we need
-        to protect from constructor races. If only we had a way to get both at the same time. And we have one:
-        we can have a volatile wrapper that we put into final field.
+        to protect from constructor races. If only we had a way to get both at the same time.
+
+        And we have a way for this: we can have a volatile wrapper that we put into final field. See how
+        Singleton_08_FinalWrapper achieved a similar thing. Now, we survive constructor races, because we have
+        final field covering us for wrapper. We maintain correctness for the rest by using release-acquire on
+        `Wrapper.factory` field, similar to examples before.
      */
 
-    static class AtomicRefLazy<T> implements Lazy<T> {
-        private final AtomicReference<Supplier<T>> factoryRef;
+    static class FinalWrapperLazy<T> implements Lazy<T> {
+        private final Wrapper<T> ref;
         private T instance;
 
-        public AtomicRefLazy(final Supplier<T> factory) {
-            this.factoryRef = new AtomicReference<>(factory);
+        public FinalWrapperLazy(final Supplier<T> factory) {
+            this.ref = new Wrapper<>(factory);
         }
 
         @Override
         public T get() {
-            if (factoryRef.get() == null) {
+            if (ref.factory == null) {
                 return instance;
             }
 
             synchronized (this) {
-                if (factoryRef.get() != null) {
-                   instance = factoryRef.get().get();
-                   factoryRef.set(null);
+                if (ref.factory != null) {
+                   instance = ref.factory.get();
+                   ref.factory = null;
                 }
                 return instance;
+            }
+        }
+
+        // In real world use, this can actually be just java.util.concurrent.atomic.AtomicReference<T>.
+        private static class Wrapper<T> {
+            volatile Supplier<T> factory;
+            public Wrapper(Supplier<T> factory) {
+                this.factory = factory;
             }
         }
     }
 
     /*
-      RESULT      SAMPLES     FREQ      EXPECT  DESCRIPTION
-  data, data  714,969,544  100.00%  Acceptable  Trivial.
+        This works well in basic tests.
 
+        x86_64, AArch64:
+              RESULT      SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data, data  714,969,544  100.00%  Acceptable  Trivial.
      */
 
     @JCStressTest
     @State
     @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Trivial.")
     public static class Basic {
-        Lazy<Holder> lazy = new AtomicRefLazy<>(new HolderFactory());
-        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
-        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
-    }
-
-/*
-                    RESULT      SAMPLES     FREQ      EXPECT  DESCRIPTION
-  null-holder, null-holder  838,586,824  100.00%  Acceptable  Seeing a null holder.
-
- */
-
-    @JCStressTest
-    @State
-    @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
-    public static class NullHolder {
-        Lazy<Holder> lazy = new AtomicRefLazy<>(new NullHolderFactory());
+        Lazy<Holder> lazy = new FinalWrapperLazy<>(new HolderFactory());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
     /*
-     RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
-       data    632,710,141   32.62%  Acceptable  Trivial.
-  null-lazy  1,307,055,563   67.38%  Acceptable  Lazy instance not seen yet.
+        This keeps handling null-s well.
+
+        x86_64, AArch64:
+                        RESULT      SAMPLES     FREQ      EXPECT  DESCRIPTION
+      null-holder, null-holder  838,586,824  100.00%  Acceptable  Seeing a null holder.
+
+     */
+
+    @JCStressTest
+    @State
+    @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
+    public static class NullHolder {
+        Lazy<Holder> lazy = new FinalWrapperLazy<>(new NullHolderFactory());
+        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
+    }
+
+    /*
+        And, of course, it survives races on Lazy instance itself.
+
+        x86_64, AArch64:
+             RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+               data    632,710,141   32.62%  Acceptable  Trivial.
+          null-lazy  1,307,055,563   67.38%  Acceptable  Lazy instance not seen yet.
      */
 
     @JCStressTest
@@ -121,17 +140,17 @@ public class Lazy_05_AtomicRefOneShot {
     @Outcome(id = "null-lazy", expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     public static class RacyOneWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1()           { lazy = new AtomicRefLazy<>(new HolderFactory()); }
+        @Actor public void actor1()           { lazy = new FinalWrapperLazy<>(new HolderFactory()); }
         @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
     }
 
     /*
-                RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
-            data, data    482,246,211   12.03%  Acceptable  Trivial.
-       data, null-lazy    644,270,368   16.07%  Acceptable  Lazy instance not seen yet.
-       null-lazy, data    693,570,498   17.30%  Acceptable  Lazy instance not seen yet.
-  null-lazy, null-lazy  2,189,716,247   54.61%  Acceptable  Lazy instance not seen yet.
-
+       x86_64, AArch64:
+                    RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+                data, data    482,246,211   12.03%  Acceptable  Trivial.
+           data, null-lazy    644,270,368   16.07%  Acceptable  Lazy instance not seen yet.
+           null-lazy, data    693,570,498   17.30%  Acceptable  Lazy instance not seen yet.
+      null-lazy, null-lazy  2,189,716,247   54.61%  Acceptable  Lazy instance not seen yet.
      */
 
     @JCStressTest
@@ -140,7 +159,7 @@ public class Lazy_05_AtomicRefOneShot {
     @Outcome(id = {"null-lazy, data", "data, null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     public static class RacyTwoWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new AtomicRefLazy<>(new HolderFactory()); }
+        @Actor public void actor1() { lazy = new FinalWrapperLazy<>(new HolderFactory()); }
         @Actor public void actor2(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor3(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
