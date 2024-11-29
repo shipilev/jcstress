@@ -59,7 +59,7 @@ public class Lazy_04_AcquireRelease {
         }
 
         private Supplier<T> factory;
-        private T value;
+        private T instance;
 
         public AcquireReleaseLazy(final Supplier<T> factory) {
             VH.setRelease(this, factory);
@@ -69,23 +69,23 @@ public class Lazy_04_AcquireRelease {
         @Override
         public T get() {
             if (VH.getAcquire(this) == null) {
-                return value;
+                return instance;
             }
 
             synchronized (this) {
                 Supplier<T> factory = (Supplier<T>) VH.get(this);
                 if (factory != null) {
-                    value = factory.get();
+                    instance = factory.get();
                     VH.setRelease(this, null);
                 }
-                return value;
+                return instance;
             }
         }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Trivial.")
     public static class Basic {
         Lazy<Holder> lazy = new AcquireReleaseLazy<>(new HolderSupplier());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
@@ -104,8 +104,8 @@ public class Lazy_04_AcquireRelease {
 
     @JCStressTest
     @State
-    @Outcome(id = {"data1", "data2"}, expect = ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"null-lazy"},      expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    @Outcome(id = "data",      expect = ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = "null-lazy", expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     public static class RacyOneWay {
         Lazy<Holder> lazy;
         @Actor public void actor1() { lazy = new AcquireReleaseLazy<>(new HolderSupplier()); }
@@ -114,8 +114,8 @@ public class Lazy_04_AcquireRelease {
 
     @JCStressTest
     @State
-    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"null-lazy, data.", "data., null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    @Outcome(id = "data, data", expect = ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = {"null-lazy, data", "data, null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     public static class RacyTwoWay {
         Lazy<Holder> lazy;
         @Actor public void actor1() { lazy = new AcquireReleaseLazy<>(new HolderSupplier()); }

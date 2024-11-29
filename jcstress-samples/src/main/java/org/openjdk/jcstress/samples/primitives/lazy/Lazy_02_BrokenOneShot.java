@@ -31,6 +31,7 @@ import org.openjdk.jcstress.infra.results.L_Result;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderSupplier;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
+import org.openjdk.jcstress.samples.primitives.lazy.shared.NullHolderSupplier;
 
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
@@ -47,7 +48,7 @@ public class Lazy_02_BrokenOneShot {
 
     static class BrokenOneShotLazy<T> implements Lazy<T> {
         private volatile Supplier<T> factory;
-        private T value;
+        private T instance;
 
         public BrokenOneShotLazy(Supplier<T> factory) {
             this.factory = factory;
@@ -56,22 +57,22 @@ public class Lazy_02_BrokenOneShot {
         @Override
         public T get() {
             if (factory == null) {
-                return value;
+                return instance;
             }
 
             synchronized (this) {
                 if (factory != null) {
-                    value = factory.get();
+                    instance = factory.get();
                     factory = null;
                 }
-                return value;
+                return instance;
             }
         }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = {"data, data"}, expect = ACCEPTABLE, desc = "Seeing the proper data.")
     public static class Basic {
         Lazy<Holder> lazy = new BrokenOneShotLazy<>(new HolderSupplier());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
@@ -80,31 +81,28 @@ public class Lazy_02_BrokenOneShot {
 
     @JCStressTest
     @State
-    @Outcome(id = "null-holder, null-holder, true", expect = ACCEPTABLE, desc = "Seeing a null holder, called factory exactly once.")
+    @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
     public static class NullHolder {
-        AtomicInteger counter = new AtomicInteger();
-        Lazy<Holder> lazy = new BrokenOneShotLazy<>(() -> { counter.incrementAndGet(); return null; });
-
-        @Actor   public void actor1(LLZ_Result r)  { r.r1 = Lazy.map(lazy); }
-        @Actor   public void actor2(LLZ_Result r)  { r.r2 = Lazy.map(lazy); }
-        @Arbiter public void arbiter(LLZ_Result r) { r.r3 = (counter.get() == 1); }
+        Lazy<Holder> lazy = new BrokenOneShotLazy<>(new NullHolderSupplier());
+        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = {"data1", "data2"}, expect = ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"null-lazy"},      expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
-    @Outcome(id = {"null-holder"},    expect = ACCEPTABLE_INTERESTING, desc = "Seeing uninitialized holder!")
+    @Outcome(id = {"data"},        expect = ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = {"null-lazy"},   expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    @Outcome(id = {"null-holder"}, expect = ACCEPTABLE_INTERESTING, desc = "Seeing uninitialized holder!")
     public static class RacyOneWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new BrokenOneShotLazy<>(new HolderSupplier()); }
+        @Actor public void actor1()           { lazy = new BrokenOneShotLazy<>(new HolderSupplier()); }
         @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"null-lazy, data.", "data., null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    @Outcome(id = {"data, data"}, expect = ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = {"null-lazy, data", "data, null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     @Outcome(id = {"null-holder, .*", ".*, null-holder"}, expect = ACCEPTABLE_INTERESTING, desc = "Seeing uninitialized holder!")
     public static class RacyTwoWay {
         Lazy<Holder> lazy;

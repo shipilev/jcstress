@@ -30,6 +30,7 @@ import org.openjdk.jcstress.infra.results.L_Result;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderSupplier;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
+import org.openjdk.jcstress.samples.primitives.lazy.shared.NullHolderSupplier;
 
 import java.util.function.Supplier;
 
@@ -52,14 +53,18 @@ public class Lazy_01_Basic {
         Practical implementations of Lazy<T> try to achieve two additional properties.
 
         First property is handling `null`-s: there is no formal restriction that Supplier<T> cannot return `null`
-        in some cases. Handling that in multi-threaded manner would require some work. But let's start with the
-        most straightforward implementation that builds on Singleton_05_DCL. This example used
+        in some cases. Handling that in multithreaded manner would require some work. But let's start with the
+        most straightforward implementation that builds on double-checked locking from Singleton_05_DCL. This example
+        is a DCL that checks on `set` field. `instance` rides on the release-acquire chain that stores and loads
+        of `set` form.
+
+        See Lazy.map(...) to understand the state that test verifies.
      */
 
     static class BasicLazy<T> implements Lazy<T> {
         private final Supplier<T> factory;
         private volatile boolean set;
-        private T value;
+        private T instance;
 
         public BasicLazy(Supplier<T> factory) {
             this.factory = factory;
@@ -68,45 +73,79 @@ public class Lazy_01_Basic {
         @Override
         public T get() {
             if (set) {
-                return value;
+                return instance;
             }
 
             synchronized (this) {
                 if (!set) {
-                    value = factory.get();
+                    instance = factory.get();
                     set = true;
                 }
-                return value;
+                return instance;
             }
         }
     }
 
+    /*
+        As expected, this performs well on all platforms.
+
+        x86_64, AArch64:
+                RESULT      SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data1, data1  444,832,256   50.00%  Acceptable  Seeing the proper data.
+          data2, data2  444,831,688   50.00%  Acceptable  Seeing the proper data.
+     */
+
     @JCStressTest
     @State
-    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Seeing the proper data.")
+    @Outcome(id = {"data, data"}, expect = ACCEPTABLE, desc = "Seeing the proper data.")
     public static class Basic {
         Lazy<Holder> lazy = new BasicLazy<>(new HolderSupplier());
         @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
 
+    /*
+
+     */
+
     @JCStressTest
     @State
-    @Outcome(id = {"null-lazy"},      expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
-    @Outcome(id = {"data1", "data2"}, expect = ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = "null-holder, null-holder", expect = ACCEPTABLE, desc = "Seeing a null holder.")
+    public static class NullHolder {
+        Lazy<Holder> lazy = new BasicLazy<>(new NullHolderSupplier());
+        @Actor public void actor1(LL_Result r) { r.r1 = Lazy.map(lazy); }
+        @Actor public void actor2(LL_Result r) { r.r2 = Lazy.map(lazy); }
+    }
+
+    /*
+        With Lazy, it is an open question what happens when the _Lazy instance itself_ is published
+        via the race. Good implementations should survive this intact. Indeed, this implementation
+        survives it well:
+
+        x86_64, AArch64:
+             RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+              data1    463,221,731   17.83%  Acceptable  Trivial.
+              data2    463,212,959   17.83%  Acceptable  Trivial.
+          null-lazy  1,670,831,174   64.33%  Acceptable  Lazy instance not seen yet.
+     */
+
+    @JCStressTest
+    @State
+    @Outcome(id = {"null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    @Outcome(id = {"data"},      expect = ACCEPTABLE, desc = "Trivial.")
     public static class RacyOneWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new BasicLazy<>(new HolderSupplier()); }
+        @Actor public void actor1()           { lazy = new BasicLazy<>(new HolderSupplier()); }
         @Actor public void actor2(L_Result r) { r.r1 = Lazy.map(lazy); }
     }
 
     @JCStressTest
     @State
-    @Outcome(id = {"data1, data1", "data2, data2"}, expect = ACCEPTABLE, desc = "Trivial.")
-    @Outcome(id = {"null-lazy, data.", "data., null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
+    @Outcome(id = {"data, data"}, expect = ACCEPTABLE, desc = "Trivial.")
+    @Outcome(id = {"null-lazy, data", "data, null-lazy", "null-lazy, null-lazy"}, expect = ACCEPTABLE, desc = "Lazy instance not seen yet.")
     public static class RacyTwoWay {
         Lazy<Holder> lazy;
-        @Actor public void actor1() { lazy = new BasicLazy<>(new HolderSupplier()); }
+        @Actor public void actor1()            { lazy = new BasicLazy<>(new HolderSupplier()); }
         @Actor public void actor2(LL_Result r) { r.r1 = Lazy.map(lazy); }
         @Actor public void actor3(LL_Result r) { r.r2 = Lazy.map(lazy); }
     }
