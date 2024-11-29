@@ -34,37 +34,23 @@ public class Singleton_10_ThreadLocalWitness {
 
     /*
         How to run this test:
-            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_09
+            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_10
      */
 
     /*
         ----------------------------------------------------------------------------------------------------------
 
-        This example is here for completeness.
+        Original DCL paper shows another quirky example:
+          https://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html#ThreadLocal
 
-        In some cases for one-shot singletons in the library code, it is more convenient to ride
-        on class initialization guarantees by using the "class holder" pattern. JVM guarantees that `H` would
-        get initialized on the first reference to it, and that initalization would be serialized by the JVM itself.
-
-        The down-sides for this approach:
-            1. It is static: you can only do it once per holder. This means tests below does not actually test
-               it all that well.
-            2. It is static (again): you need to know the instance you are putting into it ahead of time.
-               Note that examples ignore `supplier`.
-
-        The up-sides are:
-            1. Simplicity: it is really hard to get wrong.
-            2. Optimizeability: in hot code, the class initialization check would likely be elided, and the whole
-               thing would be compiled to a single field read.
-
-        This pattern sees limited use in some libraries, including JDK class library.
+        What if we were able to track whether the thread already visited the slow path, and thus guaranteed
+        to have seen or installed the new instance? This works, at the expense of quite expensive ThreadLocal
+        lookup on fast path.
      */
-
-    // https://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html#ThreadLocal
 
     static class ThreadLocalWitness<T> implements Factory<T> {
         private final ThreadLocal<String> witness;
-        private T value;
+        private T instance;
 
         public ThreadLocalWitness() {
             this.witness = new ThreadLocal<>();
@@ -73,23 +59,32 @@ public class Singleton_10_ThreadLocalWitness {
         @Override
         public T get(Supplier<T> supplier) {
             if (witness.get() != null) {
-                return value;
+                return instance;
             }
 
             synchronized (this) {
-                if (value == null) {
-                    value = supplier.get();
+                if (instance == null) {
+                    instance = supplier.get();
                 }
 
                 // NOTE: Original example sets witness.set(witness), but that constructs a memory leak.
-                // As the comments in the example correctly note, any non-null value would do as the argument here,
-                // so we just put a String constant into it. This insulates us from putting anything that references
-                // a thread local into back into thread local itself.
+                // As the comments in the example correctly note, any non-null value would do as the argument
+                // here, so we just put a String constant into it. This insulates us from putting anything
+                // that references a thread local back into thread local itself.
                 witness.set("seen");
-                return value;
+                return instance;
             }
         }
     }
+
+    /*
+        This works on all architectures.
+
+        x86_64, AArch64:
+                RESULT      SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data1, data1  266,609,576   52.16%  Acceptable  Trivial.
+          data2, data2  244,502,048   47.84%  Acceptable  Trivial.
+     */
 
     @JCStressTest
     @State
@@ -99,6 +94,15 @@ public class Singleton_10_ThreadLocalWitness {
         @Actor public void actor1(LL_Result r) { r.r1 = MapResult.map(factory, () -> new FinalSingleton("data1")); }
         @Actor public void actor2(LL_Result r) { r.r2 = MapResult.map(factory, () -> new FinalSingleton("data2")); }
     }
+
+    /*
+        Non-final singletons work well too:
+
+        x86_64, AArch64:
+                RESULT      SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data1, data1  225,094,945   45.91%  Acceptable  Trivial.
+          data2, data2  265,188,519   54.09%  Acceptable  Trivial.
+     */
 
     @JCStressTest
     @State

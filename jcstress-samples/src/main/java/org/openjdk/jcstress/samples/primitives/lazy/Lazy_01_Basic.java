@@ -25,34 +25,41 @@
 package org.openjdk.jcstress.samples.primitives.lazy;
 
 import org.openjdk.jcstress.annotations.*;
-import org.openjdk.jcstress.infra.results.LLZ_Result;
 import org.openjdk.jcstress.infra.results.LL_Result;
 import org.openjdk.jcstress.infra.results.L_Result;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Holder;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.HolderSupplier;
 import org.openjdk.jcstress.samples.primitives.lazy.shared.Lazy;
 
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE;
-import static org.openjdk.jcstress.annotations.Expect.ACCEPTABLE_INTERESTING;
-
-/*
-    How to run this test:
-    $ java -jar jcstress-samples/target/jcstress.jar -t LazyTest
-*/
 
 public class Lazy_01_Basic {
 
-    // This builds on Singleton examples, read those first.
+    /*
+        How to run this test:
+            $ java -jar jcstress-samples/target/jcstress.jar -t Lazy_01
+    */
 
-    // Additional constraints: can return null.
+    /*
+        ----------------------------------------------------------------------------------------------------------
+
+        This test starts the discussion on more advanced topic: creating Lazy<T>, a lazy factory for the object.
+        Lazy<T> looks deceptively like a singleton, and it is nearly that. Look through Singleton samples before
+        continuing here.
+
+        Practical implementations of Lazy<T> try to achieve two additional properties.
+
+        First property is handling `null`-s: there is no formal restriction that Supplier<T> cannot return `null`
+        in some cases. Handling that in multi-threaded manner would require some work. But let's start with the
+        most straightforward implementation that builds on Singleton_05_DCL. This example used
+     */
 
     static class BasicLazy<T> implements Lazy<T> {
         private final Supplier<T> factory;
-        private volatile T value;
-        private boolean used;
+        private volatile boolean set;
+        private T value;
 
         public BasicLazy(Supplier<T> factory) {
             this.factory = factory;
@@ -60,15 +67,14 @@ public class Lazy_01_Basic {
 
         @Override
         public T get() {
-            T v = value;
-            if (v != null || used) {
-                return v;
+            if (set) {
+                return value;
             }
 
             synchronized (this) {
-                if (value == null && !used) {
-                    used = true;
+                if (!set) {
                     value = factory.get();
+                    set = true;
                 }
                 return value;
             }
