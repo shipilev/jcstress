@@ -32,6 +32,32 @@ import java.util.function.Supplier;
 
 public class Singleton_09_FinalWrapper {
 
+    /*
+        How to run this test:
+            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_09
+     */
+
+    /*
+        ----------------------------------------------------------------------------------------------------------
+
+        This example is here for completeness.
+
+        Another way to avoid
+        If one studies Singleton_05_DCL example more deeply, then one can ask whether the full-blown volatile
+        is even needed. The short answer is: it is not needed.
+
+        We only need two things here:
+          1. Causality between seeing the instance and its contents. A release/acquire chain would give us
+             the required semantics. (3) -> (4) provides that chain. See BasicJMM_06_Causality example for
+             more discussion.
+          2. Coherence between unsynchronized loads. Plain field reads are not coherent, but opaque reads are.
+             (1) -> (4), (2) -> (4) chains provides the coherence. See BasicJMM_05_Coherence example for
+             more discussion.
+
+         This might improve performance on weakly-ordered platforms, where the sequentially-consistent loads
+         are more heavy-weight than acquire loads.
+     */
+
     public static class FinalWrapper<T> implements Factory<T> {
         private Wrapper<T> wrapper;
 

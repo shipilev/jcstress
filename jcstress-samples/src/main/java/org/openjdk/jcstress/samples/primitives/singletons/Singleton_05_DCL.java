@@ -41,12 +41,14 @@ public class Singleton_05_DCL {
         ----------------------------------------------------------------------------------------------------------
 
         All the observations and samples so far provide us with the building blocks for so called
-        "Double-Checked Locking" pattern. See how two features work in tandem:
-           1. Volatile `instance` provides us with publication guarantees, while not solving interleaving
-              or single object creation problem. (See Singleton_02_BrokenVolatile)
-           2. Synchronized provides us with mutual exclusion for creating the object once.
-              (See Singleton_04_InefficientSynchronized)
-           3. The check before and after taking the lock solves the interleaving problem.
+        "Double-Checked Locking" pattern. See how two features work in tandem to solve all problems:
+           1. Mutual exclusion to execute the supplier once is handled by synchronized block.
+           2. Safe publication of `instance` is guaranteed by volatile. This is important because some
+              readers might not enter the synchronized block at all, so we need to cover that path.
+           3. All interleavings are resolved by checking the `instance`, and going into recovery path on failure.
+
+        This is the most common way to achieve singleton properties. It performs well in the majority of cases,
+        and requires no deep analysis for correctness.
      */
 
     public static class DCL<T> implements Factory<T> {

@@ -32,6 +32,18 @@ import java.util.function.Supplier;
 
 public class Singleton_06_BrokenNonVolatileDCL {
 
+    /*
+        How to run this test:
+            $ java -jar jcstress-samples/target/jcstress.jar -t Singleton_06
+     */
+
+    /*
+        ----------------------------------------------------------------------------------------------------------
+
+        A very common antipattern is omitting `volatile` from the instance field. The reason why it is broken
+        should be obvious after looking at previous examples, this breaks safe publication guarantees.
+     */
+
     public static class NonVolatileDCL<T> implements Factory<T> {
         private T instance; // specifically non-volatile
 
@@ -49,12 +61,14 @@ public class Singleton_06_BrokenNonVolatileDCL {
     }
 
     /*
+        Now, here is a peculiarity: if the object we are constructing is able to survive the races
+        on its own, even this code would work well on all architectures. There would still be a race
+        on `instance` field, but it would be benign. (See also BasicJMM_09_BenignRaces example).
 
         x86_64, AArch64:
-        RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
-  data1, data1  1,251,305,922   64.43%  Acceptable  Trivial.
-  data2, data2    690,896,902   35.57%  Acceptable  Trivial.
-
+                RESULT        SAMPLES     FREQ      EXPECT  DESCRIPTION
+          data1, data1  1,251,305,922   64.43%  Acceptable  Trivial.
+          data2, data2    690,896,902   35.57%  Acceptable  Trivial.
      */
 
     @JCStressTest
@@ -67,13 +81,15 @@ public class Singleton_06_BrokenNonVolatileDCL {
     }
 
     /*
+        The failures show up readily when the object is not surviving the races on its own. In this case,
+        we can see the non-null singleton, which appears to carry null data!
 
         AArch64:
-            RESULT        SAMPLES     FREQ       EXPECT  DESCRIPTION
-      data1, data1  1,470,891,960   63.17%   Acceptable  Trivial.
-  data1, null-data      1,124,329    0.05%  Interesting  Data races.
-      data2, data2    855,805,003   36.75%   Acceptable  Trivial.
-  null-data, data2        665,052    0.03%  Interesting  Data races.
+                    RESULT        SAMPLES     FREQ       EXPECT  DESCRIPTION
+              data1, data1  1,470,891,960   63.17%   Acceptable  Trivial.
+          data1, null-data      1,124,329    0.05%  Interesting  Data races.
+              data2, data2    855,805,003   36.75%   Acceptable  Trivial.
+          null-data, data2        665,052    0.03%  Interesting  Data races.
      */
 
     @JCStressTest
