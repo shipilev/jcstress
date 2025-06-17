@@ -27,7 +27,7 @@ jobs:
     - name: Set up build JDK ${{ matrix.build-java }}
       uses: actions/setup-java@v4
       with:
-        distribution: corretto
+        distribution: temurin
         java-version: ${{ matrix.build-java }}
         cache: maven
         check-latest: true
@@ -36,7 +36,7 @@ jobs:
     - name: Set up run JDK ${{ matrix.run-java }}
       uses: actions/setup-java@v4
       with:
-        distribution: corretto
+        distribution: temurin
         java-version: ${{ matrix.run-java }}
         check-latest: true
     - name: Run a trial test
